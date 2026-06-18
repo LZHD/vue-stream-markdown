@@ -45,6 +45,7 @@
     "micromark-extension-frontmatter": "catalog:parser",
     "micromark-extension-gfm": "catalog:parser",
     "micromark-extension-math": "catalog:parser",
+    "micromark-util-symbol": "catalog:parser",
     "micromark-util-types": "catalog:parser",
     "@types/mdast": "catalog:types",
     "@markmend/core": "workspace:*"

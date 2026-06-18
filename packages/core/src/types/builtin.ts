@@ -18,6 +18,7 @@ export type BuiltinNodeRenderers
     | 'listItem'
     | 'math'
     | 'paragraph'
+    | 'ruby'
     | 'strong'
     | 'table'
     | 'text'

@@ -145,6 +145,9 @@ catalogs:
     micromark-extension-math:
       specifier: ^3.1.0
       version: 3.1.0
+    micromark-util-symbol:
+      specifier: ^2.0.1
+      version: 2.0.1
     micromark-util-types:
       specifier: ^2.0.2
       version: 2.0.2
@@ -447,6 +450,9 @@ importers:
       micromark-extension-math:
         specifier: catalog:parser
         version: 3.1.0
+      micromark-util-symbol:
+        specifier: catalog:parser
+        version: 2.0.1
       micromark-util-types:
         specifier: catalog:parser
         version: 2.0.2

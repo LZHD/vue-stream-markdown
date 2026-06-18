@@ -7,6 +7,7 @@ import { gfmStrikethroughCjkFriendly } from 'micromark-extension-cjk-friendly-gf
 import { frontmatter } from 'micromark-extension-frontmatter'
 import { gfm } from 'micromark-extension-gfm'
 import { math } from 'micromark-extension-math'
+import { rubyFromMarkdown, rubySyntax, rubyToMarkdown } from './extensions/ruby'
 
 export const BUILTIN_MICROMARK_EXTENSIONS = {
   gfm: () => gfm(),
@@ -16,16 +17,19 @@ export const BUILTIN_MICROMARK_EXTENSIONS = {
   frontmatter: () => frontmatter(),
   cjkFriendlyExtension: () => cjkFriendlyExtension(),
   gfmStrikethroughCjkFriendly: () => gfmStrikethroughCjkFriendly(),
+  ruby: () => rubySyntax(),
 } as const
 
 export const BUILTIN_FROM_MDAST_EXTENSIONS = {
   gfmFromMarkdown: () => gfmFromMarkdown(),
   mathFromMarkdown: () => mathFromMarkdown(),
   frontmatterFromMarkdown: () => frontmatterFromMarkdown(),
+  rubyFromMarkdown: () => rubyFromMarkdown(),
 } as const
 
 export const BUILTIN_TO_MDAST_EXTENSIONS = {
   gfmToMarkdown: () => gfmToMarkdown(),
   mathToMarkdown: () => mathToMarkdown(),
   frontmatterToMarkdown: () => frontmatterToMarkdown(),
+  rubyToMarkdown: () => rubyToMarkdown(),
 } as const

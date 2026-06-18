@@ -27,6 +27,7 @@ export type {
   NodeType,
   ParagraphNode,
   ParsedNode,
+  RubyNode,
   StrongNode,
   SyntaxTree,
   TableCellNode,

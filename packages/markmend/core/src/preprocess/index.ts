@@ -9,6 +9,7 @@ import { fixInlineMath } from './inline-math'
 import { fixLink } from './link'
 import { fixMath } from './math'
 import { crlfPattern } from './pattern'
+import { fixRuby } from './ruby'
 import { fixStrong } from './strong'
 import { fixTable } from './table'
 import { fixTaskList } from './task-list'
@@ -39,6 +40,7 @@ const DEFAULT_PREPROCESS_STEP_NAMES: PreprocessStepName[] = [
   'table',
   'inlineMath',
   'math',
+  'ruby',
 ]
 
 export const DEFAULT_PREPROCESS_STEPS = {
@@ -53,6 +55,7 @@ export const DEFAULT_PREPROCESS_STEPS = {
   table: fixTable,
   inlineMath: fixInlineMath,
   math: fixMath,
+  ruby: fixRuby,
 } satisfies Record<PreprocessStepName, PreprocessStep>
 
 export function preprocess(
@@ -75,6 +78,7 @@ export {
   fixInlineMath,
   fixLink,
   fixMath,
+  fixRuby,
   fixStrong,
   fixTable,
   fixTaskList,

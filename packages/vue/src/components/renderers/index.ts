@@ -21,6 +21,7 @@ export const NODE_RENDERERS = {
   listItem: defineAsyncComponent(() => import('./list-item.vue')),
   math: defineAsyncComponent(() => import('./math.vue')),
   paragraph: defineAsyncComponent(() => import('./paragraph.vue')),
+  ruby: defineAsyncComponent(() => import('./ruby.vue')),
   strong: defineAsyncComponent(() => import('./strong.vue')),
   table: defineAsyncComponent(() => import('./table.vue')),
   text: defineAsyncComponent(() => import('./text.vue')),

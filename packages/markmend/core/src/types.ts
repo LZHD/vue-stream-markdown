@@ -12,6 +12,7 @@ export type PreprocessStepName
     | 'table'
     | 'inlineMath'
     | 'math'
+    | 'ruby'
 
 export type PreprocessStep = (content: string, options?: PreprocessContext) => string
 

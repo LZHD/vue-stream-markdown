@@ -1,4 +1,5 @@
 export * from './constants'
+export * from './extensions/ruby'
 export * from './parser'
 export * from './postprocess'
 export * from './types'

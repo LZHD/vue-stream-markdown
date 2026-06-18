@@ -22,6 +22,7 @@ import type {
   MathNode,
   ParagraphNode,
   ParsedNode,
+  RubyNode,
   StrongNode,
   TableCellNode,
   TableNode,
@@ -89,3 +90,5 @@ export type YamlNodeRendererProps = NodeRendererProps<YamlNode>
 export type MathNodeRendererProps = NodeRendererProps<MathNode>
 
 export type InlineMathNodeRendererProps = NodeRendererProps<InlineMathNode>
+
+export type RubyNodeRendererProps = NodeRendererProps<RubyNode>

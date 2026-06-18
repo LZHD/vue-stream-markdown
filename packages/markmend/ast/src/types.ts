@@ -42,16 +42,19 @@ export type BuiltinMicromarkExtension
     | 'frontmatter'
     | 'cjkFriendlyExtension'
     | 'gfmStrikethroughCjkFriendly'
+    | 'ruby'
 
 export type BuiltinFromMdastExtension
   = | 'gfmFromMarkdown'
     | 'mathFromMarkdown'
     | 'frontmatterFromMarkdown'
+    | 'rubyFromMarkdown'
 
 export type BuiltinToMdastExtension
   = | 'gfmToMarkdown'
     | 'mathToMarkdown'
     | 'frontmatterToMarkdown'
+    | 'rubyToMarkdown'
 
 export type BuiltinPluginFactory<Ctx, Ext> = (ctx: Ctx) => Ext | Ext[]
 
@@ -144,6 +147,9 @@ export type MathNode = Extract<ParsedNode, { type: 'math' }>
 
 // $L$
 export type InlineMathNode = Extract<ParsedNode, { type: 'inlineMath' }>
+
+// [文字]{注音}
+export type RubyNode = Extract<ParsedNode, { type: 'ruby' }>
 
 export type {
   FromMarkdownExtension,
