@@ -23,6 +23,8 @@ import { NODE_RENDERERS, UI } from './components'
 import { ICONS } from './components/icons'
 import NodeList from './components/node-list.vue'
 import {
+  createImageUrlResolver,
+  provideImageUrlResolver,
   useContext,
   useDarkDetector,
   useKatex,
@@ -161,6 +163,14 @@ onMounted(bootstrap)
 
 watch(mode, () => updateMode(mode.value))
 watch(locale, () => loadLocaleMessages(locale.value))
+
+const imageUrlResolver = createImageUrlResolver(imageOptions)
+provideImageUrlResolver(imageUrlResolver)
+
+watch(() => imageOptions.value?.resolveUrl, (_newFn, oldFn) => {
+  if (_newFn !== oldFn)
+    imageUrlResolver.clear()
+})
 
 provideContext({
   controls,

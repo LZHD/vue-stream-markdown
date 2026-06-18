@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { ImageNodeRendererProps } from '../../types'
 import { createImageModel, saveImage } from '@stream-markdown/core'
-import { computed, ref } from 'vue'
-import { useContext, useControls, useI18n, useSanitizers } from '../../composables'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useContext, useControls, useI18n, useImageUrlResolver, useSanitizers } from '../../composables'
 
 const props = withDefaults(defineProps<ImageNodeRendererProps>(), {})
 
@@ -16,6 +16,8 @@ const {
 
 const { t } = useI18n()
 
+const resolver = useImageUrlResolver()
+
 const { isControlEnabled } = useControls({
   controls,
 })
@@ -26,11 +28,15 @@ const loadError = ref<boolean>(false)
 const imageLoaded = ref<boolean>(false)
 const fallbackAttempted = ref<boolean>(false)
 
+const resolvedUrl = ref<string>('')
+const isResolving = ref<boolean>(false)
+
 const baseImageModel = computed(() => createImageModel({
   node: props.node,
   imageOptions: imageOptions.value,
   fallbackAttempted: fallbackAttempted.value,
   imageLoaded: imageLoaded.value,
+  isResolving: isResolving.value,
 }))
 
 const isLoading = computed(() => baseImageModel.value.isLoading)
@@ -41,8 +47,61 @@ const enablePreview = computed(() => isControlEnabled('image.preview'))
 const fallback = computed(() => baseImageModel.value.fallback)
 const imageSrc = computed(() => baseImageModel.value.imageSrc)
 
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(() => imageSrc.value, async (url) => {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+
+  if (!url) {
+    resolvedUrl.value = ''
+    return
+  }
+
+  if (!resolver) {
+    resolvedUrl.value = url
+    return
+  }
+
+  const cached = resolver.getState(url)
+  if (cached?.status === 'resolved' || cached?.status === 'rejected') {
+    resolvedUrl.value = cached.value!
+    return
+  }
+  if (cached?.status === 'pending') {
+    resolvedUrl.value = await cached.promise
+    return
+  }
+
+  debounceTimer = setTimeout(async () => {
+    debounceTimer = null
+    isResolving.value = true
+    try {
+      resolvedUrl.value = await resolver.resolve(
+        url,
+        { alt: props.node.alt, title: props.node.title },
+      )
+    }
+    catch {
+      resolvedUrl.value = url
+    }
+    finally {
+      isResolving.value = false
+    }
+  }, 150)
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+})
+
 const { transformedUrl, isHardenUrl, transformHardenUrl } = useSanitizers({
-  url: imageSrc,
+  url: resolvedUrl,
   hardenOptions,
   loading: isLoading,
   isImage: true,
@@ -55,6 +114,7 @@ const imageModel = computed(() => createImageModel({
   imageLoaded: imageLoaded.value,
   isHardenUrl: isHardenUrl.value,
   loadError: loadError.value,
+  isResolving: isResolving.value,
 }))
 
 const alt = computed(() => imageModel.value.alt)
@@ -77,7 +137,7 @@ function handleError() {
   loadError.value = true
 }
 
-async function handleDownload(url: string = imageSrc.value) {
+async function handleDownload(url: string = resolvedUrl.value) {
   if (!url)
     return
   const result = await beforeDownload({
@@ -134,7 +194,7 @@ function handleMouseLeave() {
             :button-style="{
               backgroundColor: 'color-mix(in oklab, var(--background) 90%, transparent)',
             }"
-            @click="() => handleDownload(imageSrc)"
+            @click="() => handleDownload(resolvedUrl)"
           />
         </div>
       </div>

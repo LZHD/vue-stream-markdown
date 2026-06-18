@@ -26,6 +26,7 @@ export interface ImagePreviewModelOptions {
   state?: Partial<ImagePreviewTransformState>
   icons?: ImagePreviewIconAvailability
   elementStyle?: UIStyleValue
+  imageCount?: number
 }
 
 export type ImagePreviewControlKey
@@ -47,6 +48,36 @@ const DEFAULT_IMAGE_PREVIEW_TRANSFORM_STATE: ImagePreviewTransformState = {
   rotate: 0,
 }
 
+export interface ImagePreviewItem {
+  url: string
+  alt?: string | null
+  title?: string | null
+}
+
+export function createImagePreviewItems(
+  nodes: ParsedNode[] = [],
+): ImagePreviewItem[] {
+  const items: ImagePreviewItem[] = []
+  const seen = new Set<string>()
+
+  visitNodes(nodes, (node) => {
+    if (node.type !== 'image')
+      return
+
+    const image = node as ImageNode
+    if (image.loading || !image.url)
+      return
+
+    if (seen.has(image.url))
+      return
+
+    seen.add(image.url)
+    items.push({ url: image.url, alt: image.alt, title: image.title })
+  })
+
+  return items
+}
+
 export function createImagePreviewSources(
   nodes: ParsedNode[] = [],
   transformHardenUrl?: (url: string) => string | null,
@@ -64,11 +95,11 @@ export function createImagePreviewSources(
 
     const url = image.url
     const transformed = transformHardenUrl ? transformHardenUrl(url) : url
-    if (!transformed || seen.has(url))
+    if (!transformed || seen.has(transformed))
       return
 
-    seen.add(url)
-    sources.push(url)
+    seen.add(transformed)
+    sources.push(transformed)
   })
 
   return sources
@@ -226,7 +257,7 @@ export function createImagePreviewModel(options: ImagePreviewModelOptions) {
       controls: options.controls,
       hasDownload: options.hasDownload,
       icons: options.icons,
-      imageCount: sources.length,
+      imageCount: options.imageCount ?? sources.length,
       imageSrc: options.src,
     }),
   }

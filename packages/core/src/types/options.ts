@@ -57,6 +57,11 @@ export interface ImageOptions<TComponent = unknown> {
   caption?: boolean
   referrerPolicy?: ReferrerPolicy
   errorComponent?: TComponent
+  /**
+   * Custom image URL resolver. Supports both sync and async return.
+   * During resolution, the image displays a loading state.
+   */
+  resolveUrl?: (url: string, context: { alt?: string | null, title?: string | null }) => Promise<string> | string
 }
 
 export interface LinkOptions {

@@ -3,6 +3,7 @@ import type {
   CdnOptions,
   CodeOptions,
   ControlsConfig,
+  ImageOptions,
   MermaidOptions,
   PreviewerConfig,
   SelectOption,
@@ -171,6 +172,15 @@ const cdnOptions: CdnOptions = {
       default:
         return undefined
     }
+  },
+}
+
+const imageOptions: ImageOptions = {
+  resolveUrl: (url: string) => {
+    if (!url.includes('https')) {
+      return `https://placehold.co${url}`
+    }
+    return url
   },
 }
 
@@ -389,6 +399,7 @@ onMounted(() => {
           :mermaid-options="mermaidOptions"
           :ui-options="uiOptions"
           :cdn-options="cdnOptions"
+          :image-options="imageOptions"
         />
       </div>
     </template>

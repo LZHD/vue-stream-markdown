@@ -8,10 +8,16 @@ export interface ImageModelOptions<TComponent = unknown> {
   imageLoaded?: boolean
   isHardenUrl?: boolean
   loadError?: boolean
+  isResolving?: boolean
+}
+
+export interface ImageUrlContext {
+  alt?: string | null
+  title?: string | null
 }
 
 export function createImageModel<TComponent = unknown>(options: ImageModelOptions<TComponent>) {
-  const isLoading = !!options.node.loading || !options.node.url
+  const isLoading = !!options.node.loading || !options.node.url || !!options.isResolving
   const fallback = options.imageOptions?.fallback ?? ''
   const imageSrc = options.fallbackAttempted && fallback ? fallback : options.node.url
   const alt = String(options.node.alt ?? options.node.title ?? '')
@@ -33,4 +39,20 @@ export function createImageModel<TComponent = unknown>(options: ImageModelOption
     showError: !!options.isHardenUrl || !!options.loadError,
     errorVariant: options.isHardenUrl ? 'harden-image' : 'image',
   } as const
+}
+
+/**
+ * Resolve image URL with custom resolver. Supports both sync and async resolvers.
+ * Follows the same pattern as checkTrustedLink: Promise.resolve() unifies sync/async handling.
+ */
+export async function resolveImageUrl(
+  url: string,
+  context: ImageUrlContext,
+  imageOptions?: ImageOptions,
+): Promise<string> {
+  const resolveUrl = imageOptions?.resolveUrl
+  if (!resolveUrl)
+    return url
+
+  return Promise.resolve(resolveUrl(url, context))
 }

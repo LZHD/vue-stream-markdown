@@ -5,8 +5,8 @@ import type {
 } from '@stream-markdown/core'
 import type { Control, ImageNodeRendererProps, UIImageProps } from '../types'
 import {
+  createImagePreviewItems,
   createImagePreviewModel,
-  createImagePreviewSources,
   flipImagePreviewHorizontal,
   flipImagePreviewVertical,
   resetImagePreviewTransformState,
@@ -15,7 +15,7 @@ import {
 } from '@stream-markdown/core'
 import { useCycleList } from '@vueuse/core'
 import { computed, ref, toRefs, watch } from 'vue'
-import { useContext, useControls, useI18n, useMediumZoom } from '../composables'
+import { useContext, useControls, useI18n, useImageUrlResolver, useMediumZoom } from '../composables'
 
 const props = withDefaults(defineProps<UIImageProps>(), {
   preview: true,
@@ -29,6 +29,7 @@ const emits = defineEmits<{
 }>()
 
 const { icons, parsedNodes, uiComponents: UI } = useContext()
+const resolver = useImageUrlResolver()
 
 const { margin, controls: controlsConfig } = toRefs(props)
 
@@ -63,8 +64,29 @@ const {
   close: () => open.value = false,
 })
 
-const imageList = computed(() => createImagePreviewSources(parsedNodes.value, props.transformHardenUrl))
-const { state: imageSrc, prev, next } = useCycleList(imageList, {
+const resolvedImageList = ref<string[]>([props.src].filter(Boolean) as string[])
+
+watch(() => parsedNodes.value, async () => {
+  const items = createImagePreviewItems(parsedNodes.value)
+  if (!resolver) {
+    resolvedImageList.value = items
+      .map(item => props.transformHardenUrl?.(item.url) ?? item.url)
+      .filter((url): url is string => !!url)
+    return
+  }
+
+  const resolved = await Promise.all(
+    items.map(item =>
+      resolver.resolve(item.url, { alt: item.alt, title: item.title })
+        .then(url => props.transformHardenUrl?.(url) ?? url)
+        .catch(() => props.transformHardenUrl?.(item.url) ?? item.url),
+    ),
+  )
+
+  resolvedImageList.value = resolved.filter(Boolean) as string[]
+}, { immediate: true })
+
+const { state: imageSrc, prev, next } = useCycleList(resolvedImageList, {
   initialValue: props.src,
   fallbackIndex: 0,
 })
@@ -80,6 +102,7 @@ const model = computed(() => createImagePreviewModel({
   hasElement: !!elementRef.value,
   state: transformState.value,
   elementStyle: elementStyle.value,
+  imageCount: resolvedImageList.value.length,
   icons: {
     arrowRight: !!icons.value.arrowRight,
     flipVertical: !!icons.value.flipVertical,

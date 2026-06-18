@@ -6,6 +6,7 @@ export default defineConfig({
   formatters: true,
   ignores: [
     '**/__fixtures__/**',
+    'docs/**/*.md',
     'playground/nuxt/app/markdown/**/landing-page.md',
     'playground/nuxt/app/markdown/**/code-blocks.md',
   ],
