@@ -10,7 +10,9 @@ import type {
   StreamMarkdownProps,
   UIOptions,
 } from 'vue-stream-markdown'
+import type { Editor } from './types'
 import { throttle } from '@antfu/utils'
+import { isClient } from '@stream-markdown/core'
 import { createHtmlPlugin } from '@stream-markdown/html'
 import { useCycleList, useResizeObserver } from '@vueuse/core'
 import * as LZString from 'lz-string'
@@ -61,6 +63,7 @@ const processedContent = computed(() => markdownRef.value?.getProcessedContent()
 
 const containerRef = ref<HTMLDivElement>()
 const monacoRef = ref()
+const monacoEditor = shallowRef<Editor>()
 const content = ref<string>('')
 
 const { state: locale, next: toggleLanguage } = useCycleList(SUPPORT_LANGUAGES, {
@@ -203,6 +206,14 @@ const caret = computed(() => userConfig.value.caret ? userConfig.value.caret : u
 function onEditorChange(data: string) {
   content.value = data
 }
+
+function onEditorReady(editor: Editor) {
+  monacoEditor.value = editor
+}
+
+const enableScrollSync = computed(() => !isMobile.value && !isTyping.value && isClient())
+useScrollSync(monacoEditor, containerRef, enableScrollSync)
+useCursorSync(monacoEditor, containerRef, enableScrollSync)
 
 async function changePresetContent(item: SelectOption) {
   terminateTypeWriting()
@@ -354,6 +365,7 @@ onMounted(() => {
           :content="content"
           :theme="shikiOptions.theme"
           @change="onEditorChange"
+          @ready="onEditorReady"
         />
       </ClientOnly>
     </template>

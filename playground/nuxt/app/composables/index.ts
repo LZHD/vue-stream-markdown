@@ -1,4 +1,6 @@
+export * from './use-cursor-sync'
 export * from './use-dark'
 export * from './use-mobile'
+export * from './use-scroll-sync'
 export * from './use-typed-effect'
 export * from './use-user-config'

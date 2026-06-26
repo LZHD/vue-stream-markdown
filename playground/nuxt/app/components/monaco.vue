@@ -16,6 +16,7 @@ const props = withDefaults(defineProps<{
 
 const emits = defineEmits<{
   (e: 'change', content: string): void
+  (e: 'ready', editor: Editor): void
 }>()
 
 const { isDark } = useDark()
@@ -62,6 +63,8 @@ async function initEditor() {
   editor.value.onDidChangeModelContent(() => {
     emits('change', editor.value?.getValue() ?? '')
   })
+
+  emits('ready', editor.value)
 }
 
 async function updateTheme() {

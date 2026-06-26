@@ -8,6 +8,10 @@ export function isString(value: unknown): value is string {
   return typeof value === 'string'
 }
 
+export function clamp(value: number, min: number, max: number): number {
+  return value < min ? min : value > max ? max : value
+}
+
 export function isRegExp(value: unknown): value is RegExp {
   return Object.prototype.toString.call(value) === '[object RegExp]'
 }
