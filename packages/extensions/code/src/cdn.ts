@@ -3,11 +3,11 @@ import type { MaybeGetter } from './types'
 import { dynamicImport, isModuleEnabled, removeTrailingSlash, resolveGetter } from '@stream-markdown/core'
 import { SHIKI_VERSION } from './constants'
 
-let shikiModule: typeof import('shiki') | null = null
-
 export interface ShikiCdnLoaderOptions {
   cdnOptions?: MaybeGetter<SharedCdnOptions | undefined>
 }
+
+let shikiModule: typeof import('shiki') | null = null
 
 export function createShikiCdnLoader(options?: ShikiCdnLoaderOptions) {
   function getCdnUrl(): string | undefined {
@@ -22,9 +22,10 @@ export function createShikiCdnLoader(options?: ShikiCdnLoaderOptions) {
       return undefined
     if (!baseUrl && !customGetter)
       return undefined
-    if (!import.meta.env.SSR && typeof window !== 'undefined') {
-      if (!('supports' in HTMLScriptElement) || !(HTMLScriptElement.supports?.('importmap')))
-        return undefined
+    if (!import.meta.env.SSR
+      && typeof window !== 'undefined'
+      && (!('supports' in HTMLScriptElement) || !(HTMLScriptElement.supports?.('importmap')))) {
+      return undefined
     }
 
     if (customGetter) {

@@ -7,6 +7,8 @@ export function getConfigValue<T = unknown>(config: unknown, key: string): T | u
     let current = config
 
     for (const part of path) {
+      if (typeof current === 'boolean')
+        return current as T
       if (current === undefined || current === null || typeof current !== 'object')
         return undefined
       current = (current as Record<string, unknown>)[part]
@@ -21,6 +23,19 @@ export function getConfigValue<T = unknown>(config: unknown, key: string): T | u
 
 export function isConfigEnabled(config: unknown, key: string): boolean {
   return getConfigValue(config, key) !== false
+}
+
+export function getDownloadFilename(
+  config: unknown,
+  type: 'code' | 'table' | 'mermaid',
+  fallback: string,
+): string {
+  const download = getConfigValue<unknown>(config, `${type}.download`)
+  if (!download || typeof download !== 'object')
+    return fallback
+
+  const filename = (download as Record<string, unknown>).filename
+  return typeof filename === 'string' && filename ? filename : fallback
 }
 
 export function filterVisibleItems<T extends { visible?: (() => boolean) | undefined }>(items: T[]): T[] {

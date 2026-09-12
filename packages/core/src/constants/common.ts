@@ -1,4 +1,4 @@
-import type { BuiltinNodeRenderers, CaretType, HardenOptions, PlainTextNodeTypes } from '../types'
+import type { CaretType, HardenOptions } from '../types'
 
 export const ANIMATION_TYPES = [
   'fade-in',
@@ -7,6 +7,8 @@ export const ANIMATION_TYPES = [
 ] as const
 
 export const DEFAULT_ANIMATION = ANIMATION_TYPES[0]
+
+export const DEFAULT_ANIMATION_STAGGER = 40
 
 export const ANIMATION_SPLITS = [
   'auto',
@@ -17,16 +19,12 @@ export const ANIMATION_SPLITS = [
 export const DEFAULT_ANIMATION_SPLIT = ANIMATION_SPLITS[0]
 
 export const STREAM_MARKDOWN_PREFIX = 'stream-markdown'
+export const DISABLED_TRANSITION_NAME = `${STREAM_MARKDOWN_PREFIX}-disabled`
 
 export const STREAM_MARKDOWN_CSS_VARIABLES = {
   animationDuration: '--stream-markdown-animation-duration',
   defaultTransitionDuration: '--default-transition-duration',
 } as const
-
-export const NODE_TRANSITION_EXCLUDED_TYPES = [
-  'code',
-  'text',
-] as const satisfies readonly BuiltinNodeRenderers[]
 
 export const CARETS = {
   block: ' ▋',
@@ -39,40 +37,6 @@ export const DEFAULT_HARDEN_OPTIONS: HardenOptions = {
   allowedProtocols: ['*'],
   allowDataImages: true,
 }
-
-export const PLAIN_TEXT_NODES: PlainTextNodeTypes[] = [
-  'text',
-  'inlineCode',
-  'inlineMath',
-  'strong',
-  'emphasis',
-  'delete',
-  'footnoteReference',
-  'footnoteDefinition',
-  'link',
-  'linkReference',
-]
-
-export const PRELOAD_NODE_RENDERER: BuiltinNodeRenderers[] = [
-  'blockquote',
-  'delete',
-  'emphasis',
-  'footnoteDefinition',
-  'footnoteReference',
-  'heading',
-  'image',
-  'inlineCode',
-  'inlineMath',
-  'link',
-  'list',
-  'listItem',
-  'paragraph',
-  'strong',
-  'table',
-  'text',
-  'thematicBreak',
-  'yaml',
-]
 
 export const SHADCN_SCHEMAS = [
   'background',

@@ -1,10 +1,8 @@
 // @vitest-environment happy-dom
-import type { ImageNode, MarkdownAstParser, NodeRenderers } from 'vue-stream-markdown'
-import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import Image from '../../packages/vue/src/components/image.vue'
-import ImageRenderer from '../../packages/vue/src/components/renderers/image.vue'
 import { useContext } from '../../packages/vue/src/composables'
 
 const PassthroughModal = defineComponent({
@@ -15,60 +13,28 @@ const PassthroughModal = defineComponent({
 
 const PassthroughZoomContainer = defineComponent({
   setup(_, { slots }) {
-    return () => h('div', { 'data-test': 'zoom-container' }, slots.default?.())
+    return () => h('div', { 'data-test': 'zoom-container' }, [
+      slots.controls?.({}),
+      slots.default?.(),
+    ])
   },
 })
 
-describe('image renderer', () => {
-  it('passes imageOptions.referrerPolicy to custom image components', () => {
-    const CustomImage = defineComponent({
-      props: {
-        referrerPolicy: String,
-      },
-      setup(props) {
-        return () => h('img', {
-          'data-test': 'custom-image',
-          'referrerpolicy': props.referrerPolicy,
-        })
-      },
+const PassthroughButton = defineComponent({
+  props: {
+    name: String,
+  },
+  emits: ['click'],
+  setup(props, { emit }) {
+    return () => h('button', {
+      'aria-label': props.name,
+      'onClick': (event: MouseEvent) => emit('click', event),
     })
-
-    const WrappedImageRenderer = defineComponent({
-      setup() {
-        const { provideContext } = useContext()
-
-        provideContext({
-          controls: false,
-          imageOptions: {
-            referrerPolicy: 'no-referrer',
-          },
-          uiComponents: {
-            Image: CustomImage,
-          } as never,
-        })
-
-        return () => h(ImageRenderer, {
-          markdownParser: {} as MarkdownAstParser,
-          nodeRenderers: {} as NodeRenderers,
-          node: {
-            type: 'image',
-            url: 'https://example.com/image.png',
-            alt: 'Example',
-          } as ImageNode,
-          nodeKey: 'stream-markdown-block-0-image-0',
-          deep: 1,
-        })
-      },
-    })
-
-    const wrapper = mount(WrappedImageRenderer)
-
-    expect(wrapper.find('[data-test="custom-image"]').attributes('referrerpolicy')).toBe('no-referrer')
-  })
+  },
 })
 
 describe('image component', () => {
-  it('applies referrerPolicy to inline and preview images', () => {
+  it('mounts the preview lazily and applies referrerPolicy to both images', async () => {
     const WrappedImage = defineComponent({
       setup() {
         const { provideContext } = useContext()
@@ -86,27 +52,76 @@ describe('image component', () => {
           title: 'Example image',
           controls: false,
           referrerPolicy: 'no-referrer',
-          nodeProps: {
-            markdownParser: {} as MarkdownAstParser,
-            nodeRenderers: {} as NodeRenderers,
-            node: {
-              type: 'image',
-              url: 'https://example.com/image.png',
-            } as ImageNode,
-            nodeKey: 'stream-markdown-block-0-image-0',
-            deep: 1,
-          },
+          nodeProps: {},
         })
       },
     })
 
     const wrapper = mount(WrappedImage)
-    const images = wrapper.findAll('img')
+    expect(wrapper.findAll('img')).toHaveLength(1)
+    expect(wrapper.get('img').attributes('referrerpolicy')).toBe('no-referrer')
 
+    await wrapper.get('img').trigger('load')
+    await wrapper.get('img').trigger('click')
+    await flushPromises()
+
+    const images = wrapper.findAll('img')
     expect(images).toHaveLength(2)
     expect(images.map(image => image.attributes('referrerpolicy'))).toEqual([
       'no-referrer',
       'no-referrer',
+    ])
+  })
+
+  it('switches between provided image sources', async () => {
+    const WrappedImage = defineComponent({
+      setup() {
+        const { provideContext } = useContext()
+
+        provideContext({
+          uiComponents: {
+            Button: PassthroughButton,
+            Modal: PassthroughModal,
+            ZoomContainer: PassthroughZoomContainer,
+          } as never,
+        })
+
+        return () => h(Image, {
+          src: 'https://example.com/first.png',
+          sources: [
+            'https://example.com/first.png',
+            'https://example.com/second.png',
+          ],
+          alt: 'Example',
+          controls: {
+            image: {
+              carousel: true,
+              download: false,
+              flip: false,
+              rotate: false,
+            },
+          },
+          nodeProps: {},
+        })
+      },
+    })
+
+    const wrapper = mount(WrappedImage)
+    await wrapper.get('img').trigger('load')
+    await wrapper.get('img').trigger('click')
+    await vi.dynamicImportSettled()
+    await flushPromises()
+
+    expect(wrapper.findAll('img').map(image => image.attributes('src'))).toEqual([
+      'https://example.com/first.png',
+      'https://example.com/first.png',
+    ])
+
+    await wrapper.get('button[aria-label="Next"]').trigger('click')
+
+    expect(wrapper.findAll('img').map(image => image.attributes('src'))).toEqual([
+      'https://example.com/first.png',
+      'https://example.com/second.png',
     ])
   })
 })

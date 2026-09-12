@@ -53,7 +53,8 @@ async function hasBundledShikiModule() {
   }
 }
 
-export function disposeSharedShikiHighlighter() {
+/** Dispose the shared highlighter only after all syntax highlighting has stopped. */
+export function disposeShikiHighlighter() {
   highlighter?.dispose()
   highlighter = null
   createHighlighterPromise = null
@@ -125,7 +126,7 @@ export function createShikiRuntime(options: CodeRuntimeOptions = {}): ShikiRunti
     const loadedThemes = targetHighlighter.getLoadedThemes()
 
     if (!loadedLangs.includes(language))
-      await targetHighlighter.loadLanguage(language as unknown as BundledLanguage)
+      await targetHighlighter.loadLanguage(language as BundledLanguage)
 
     for (const theme of themes) {
       if (!loadedThemes.includes(theme))

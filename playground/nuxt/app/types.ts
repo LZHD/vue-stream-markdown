@@ -1,7 +1,7 @@
 import type loader from '@monaco-editor/loader'
 import type { BuiltinTheme } from 'shiki'
 import type { Component } from 'vue'
-import type { StreamMarkdownProps } from 'vue-stream-markdown'
+import type { CodeBlockVariant, StreamMarkdownProps } from 'vue-stream-markdown'
 
 export type Monaco = Awaited<ReturnType<typeof loader.init>>
 export type Editor = Awaited<ReturnType<Monaco['editor']['create']>>
@@ -10,10 +10,11 @@ export interface UserConfig {
   locale: string
   staticMode: boolean
   autoScroll: boolean
-  typedStep: number
+  typedStepMin: number
+  typedStepMax: number
   typedDelay: number
   showInputEditor: boolean
-  showAstResult: boolean
+  showDocumentResult: boolean
   shikiLightTheme: BuiltinTheme
   shikiDarkTheme: BuiltinTheme
   mermaidRenderer: 'vanilla' | 'beautiful'
@@ -21,10 +22,12 @@ export interface UserConfig {
   mermaidDarkTheme: string
   mermaidBeautifulLightTheme: string
   mermaidBeautifulDarkTheme: string
-  caret: StreamMarkdownProps['caret']
+  caret: NonNullable<StreamMarkdownProps['caret']> | ''
   animation: NonNullable<StreamMarkdownProps['animation']>
   animationSplit: NonNullable<StreamMarkdownProps['animationSplit']>
   animationDuration: number
+  animationStagger: number
+  codeBlockVariant: CodeBlockVariant
 }
 
 export interface IconButtonProps {

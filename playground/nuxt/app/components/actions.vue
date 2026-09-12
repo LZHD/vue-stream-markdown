@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { StreamMarkdownProps } from 'vue-stream-markdown'
+import type { CodeBlockVariant, StreamMarkdownProps } from 'vue-stream-markdown'
 import type { Action } from '../types'
 import { useClipboard } from '@vueuse/core'
 import * as LZString from 'lz-string'
@@ -45,11 +45,12 @@ const autoScroll = defineModel<boolean>('autoScroll', { required: false, default
 
 const typedEnable = defineModel<boolean>('typedEnable', { required: false, default: false })
 const typingIndex = defineModel<number>('typingIndex', { required: false, default: 0 })
-const typedStep = defineModel<number>('typedStep', { required: false, default: 1 })
+const typedStepMin = defineModel<number>('typedStepMin', { required: false, default: 1 })
+const typedStepMax = defineModel<number>('typedStepMax', { required: false, default: 3 })
 const typedDelay = defineModel<number>('typedDelay', { required: false, default: 16 })
 
 const showInputEditor = defineModel<boolean>('showInputEditor', { required: false, default: false })
-const showAstResult = defineModel<boolean>('showAstResult', { required: false, default: false })
+const showDocumentResult = defineModel<boolean>('showDocumentResult', { required: false, default: false })
 
 const shikiLightTheme = defineModel<string>('shikiLightTheme', { required: false, default: 'github-light' })
 const shikiDarkTheme = defineModel<string>('shikiDarkTheme', { required: false, default: 'github-dark' })
@@ -60,10 +61,12 @@ const mermaidDarkTheme = defineModel<string>('mermaidDarkTheme', { required: fal
 const mermaidBeautifulLightTheme = defineModel<string>('mermaidBeautifulLightTheme', { required: false, default: 'default' })
 const mermaidBeautifulDarkTheme = defineModel<string>('mermaidBeautifulDarkTheme', { required: false, default: 'zinc-dark' })
 
-const caret = defineModel<StreamMarkdownProps['caret']>('caret', { required: false, default: 'block' })
-const animation = defineModel<NonNullable<StreamMarkdownProps['animation']>>('animation', { required: false, default: 'fade-in' })
+const caret = defineModel<NonNullable<StreamMarkdownProps['caret']> | ''>('caret', { required: false, default: '' })
+const animation = defineModel<NonNullable<StreamMarkdownProps['animation']>>('animation', { required: false, default: '' })
 const animationSplit = defineModel<NonNullable<StreamMarkdownProps['animationSplit']>>('animationSplit', { required: false, default: 'auto' })
-const animationDuration = defineModel<number>('animationDuration', { required: false, default: 500 })
+const animationDuration = defineModel<number>('animationDuration', { required: false, default: 180 })
+const animationStagger = defineModel<number>('animationStagger', { required: false, default: 40 })
+const codeBlockVariant = defineModel<CodeBlockVariant>('codeBlockVariant', { required: false, default: 'modern' })
 
 function wrapAction(action: Omit<Action, 'key'>): Action | null {
   if (action.visible && !action.visible?.())
@@ -141,11 +144,11 @@ const actions = computed((): Action[] => {
       onClick: () => showInputEditor.value = !showInputEditor.value,
     }),
     wrapAction({
-      name: 'Toggle Ast Result',
+      name: 'Toggle Document Result',
       icon: ListTree,
       variant: 'toggle',
-      defaultActive: showAstResult.value,
-      onClick: () => showAstResult.value = !showAstResult.value,
+      defaultActive: showDocumentResult.value,
+      onClick: () => showDocumentResult.value = !showDocumentResult.value,
     }),
     wrapAction({
       name: 'Change Languages',
@@ -172,7 +175,7 @@ const actions = computed((): Action[] => {
 </script>
 
 <template>
-  <div class="flex flex-wrap gap-1 max-sm:w-full max-sm:justify-center">
+  <div class="flex flex-wrap gap-x-1 gap-y-2 max-sm:w-full max-sm:justify-center">
     <SettingsPopover
       v-model:auto-scroll="autoScroll"
       v-model:static-mode="staticMode"
@@ -180,8 +183,11 @@ const actions = computed((): Action[] => {
       v-model:animation="animation"
       v-model:animation-split="animationSplit"
       v-model:animation-duration="animationDuration"
+      v-model:animation-stagger="animationStagger"
+      v-model:code-block-variant="codeBlockVariant"
       v-model:typing-index="typingIndex"
-      v-model:typed-step="typedStep"
+      v-model:typed-step-min="typedStepMin"
+      v-model:typed-step-max="typedStepMax"
       v-model:typed-delay="typedDelay"
       v-model:shiki-light-theme="shikiLightTheme"
       v-model:shiki-dark-theme="shikiDarkTheme"

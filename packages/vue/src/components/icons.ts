@@ -1,6 +1,6 @@
 import { defineAsyncComponent } from 'vue'
 
-/// keep-sorted
+/** / keep-sorted */
 export const ICONS = {
   arrowLeft: defineAsyncComponent(() => import('~icons/lucide/arrow-left')),
   check: defineAsyncComponent(() => import('~icons/lucide/check')),
@@ -12,8 +12,10 @@ export const ICONS = {
   error: defineAsyncComponent(() => import('~icons/lucide/circle-alert')),
   externalLink: defineAsyncComponent(() => import('~icons/lucide/external-link')),
   flipHorizontal: defineAsyncComponent(() => import('~icons/lucide/flip-horizontal')),
+  globe: defineAsyncComponent(() => import('~icons/lucide/globe')),
   image: defineAsyncComponent(() => import('~icons/lucide/image')),
   link: defineAsyncComponent(() => import('~icons/lucide/link')),
+  mail: defineAsyncComponent(() => import('~icons/lucide/mail')),
   maximize: defineAsyncComponent(() => import('~icons/lucide/maximize')),
   mermaid: defineAsyncComponent(() => import('~icons/simple-icons/mermaid')),
   minimize: defineAsyncComponent(() => import('~icons/lucide/minimize')),

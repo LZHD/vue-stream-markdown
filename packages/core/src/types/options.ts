@@ -1,10 +1,11 @@
-export interface PreloadConfig<TBuiltinNodeRenderer extends string = string> {
-  nodeRenderers?: TBuiltinNodeRenderer[]
-}
+import type { MaybePromise } from './common'
 
 export type PreviewSegmentedPlacement = 'left' | 'center' | 'right' | 'auto'
 
 export interface HtmlPreviewerOptions {
+  autoHeight?: boolean
+  height?: number | string
+  maxHeight?: number | string
   sandbox?: string
 }
 
@@ -20,38 +21,6 @@ export type PreviewerConfig<TComponent = unknown>
       } & Record<string, TComponent>
     }
 
-export interface ShikiOptions<
-  TTheme = string,
-  TLanguage = string,
-  TCodeToTokenOptions = unknown,
-  TEngine = unknown,
-> {
-  theme?: [TTheme, TTheme]
-  langs?: TLanguage[]
-  langAlias?: Record<string, string>
-  engine?: TEngine
-  codeToTokenOptions?: TCodeToTokenOptions
-}
-
-export interface MermaidOptions<
-  TComponent = unknown,
-  TConfig = unknown,
-  TBeautifulTheme = string,
-  TBeautifulConfig = unknown,
-> {
-  renderer?: 'vanilla' | 'beautiful'
-  theme?: [string, string]
-  config?: TConfig
-  beautifulTheme?: [TBeautifulTheme, TBeautifulTheme]
-  beautifulConfig?: TBeautifulConfig
-  errorComponent?: TComponent
-}
-
-export interface KatexOptions<TComponent = unknown, TConfig = unknown> {
-  config?: TConfig
-  errorComponent?: TComponent
-}
-
 export interface ImageOptions<TComponent = unknown> {
   fallback?: string
   caption?: boolean
@@ -59,12 +28,16 @@ export interface ImageOptions<TComponent = unknown> {
   errorComponent?: TComponent
 }
 
+export type LinkFaviconResolver = (url: string) => MaybePromise<string | undefined>
+
 export interface LinkOptions {
+  favicon?: boolean | LinkFaviconResolver
   safetyCheck?: boolean
   isTrusted?: (url: string) => Promise<boolean> | boolean
 }
 
 export interface CodeOptions<TComponent = unknown> {
+  variant?: CodeBlockVariant
   languageIcon?: boolean
   languageName?: boolean
   lineNumbers?: boolean
@@ -72,8 +45,14 @@ export interface CodeOptions<TComponent = unknown> {
   language?: Record<string, CodeOptionsLanguage<TComponent>>
 }
 
+export type CodeBlockVariant = 'modern' | 'classic' | 'minimal'
+
 export interface CodeOptionsLanguage<TComponent = unknown> extends Omit<CodeOptions<TComponent>, 'languageIcon'> {
   languageIcon?: boolean | TComponent
+}
+
+export interface TableOptions {
+  maxHeight?: number | string
 }
 
 export interface HardenOptions<TComponent = unknown> {

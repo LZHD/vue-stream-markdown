@@ -1,20 +1,25 @@
 {
   "name": "docs",
   "type": "module",
-  "version": "1.0.0",
+  "version": "2.0.0-beta.5",
   "private": true,
   "scripts": {
-    "dev": "vitepress dev",
-    "build": "vitepress build",
-    "preview": "vitepress preview"
+    "predev": "pnpm -w build",
+    "dev": "nuxt dev",
+    "prebuild": "pnpm -w build",
+    "build": "nuxt generate",
+    "preview": "nuxt preview"
   },
   "dependencies": {
     "@vueuse/core": "catalog:frontend",
-    "vue": "catalog:frontend",
+    "nuxt": "catalog:playground",
+    "ufo": "catalog:playground",
+    "@stream-markdown/beautiful-mermaid": "workspace:*",
+    "@stream-markdown/code": "workspace:*",
+    "@stream-markdown/math": "workspace:*",
+    "@stream-markdown/mermaid": "workspace:*",
+    "comark-docs": "github:comarkdown/comark-docs#fad7fbfd4e05cfaabc6ace410bee4c068665f37f",
+    "katex": "^0.16.38",
     "vue-stream-markdown": "workspace:*"
-  },
-  "devDependencies": {
-    "vitepress": "catalog:docs",
-    "vitepress-plugin-llms": "catalog:docs"
   }
 }

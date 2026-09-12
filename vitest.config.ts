@@ -2,7 +2,7 @@ import { resolve } from 'node:path'
 import Vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
 import { defineConfig } from 'vitest/config'
-import { alias } from './shared'
+import { alias } from './shared.ts'
 
 export default defineConfig({
   plugins: [
@@ -15,15 +15,14 @@ export default defineConfig({
   resolve: {
     alias: {
       ...alias,
-      shiki: resolve(__dirname, './packages/vue/node_modules/shiki'),
+      shiki: resolve(import.meta.dirname, './packages/extensions/code/node_modules/shiki'),
     },
   },
   test: {
     coverage: {
       include: [
-        'packages/markmend/core/src/preprocess/*.ts',
-        'packages/markmend/core/src/processor.ts',
-        'packages/markmend/ast/src/parser.ts',
+        'packages/markmend/core/src/completion/*.ts',
+        'packages/markmend/parser/src/*.ts',
       ],
     },
   },

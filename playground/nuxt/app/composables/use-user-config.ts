@@ -1,13 +1,17 @@
 import type { UserConfig } from '../types'
+import { version } from 'vue-stream-markdown/package.json'
+
+const STORAGE_KEY = `user-config-${version}`
 
 const DEFAULT_USER_CONFIG: UserConfig = {
   locale: 'en-US',
   staticMode: false,
   autoScroll: false,
-  typedStep: 1,
+  typedStepMin: 1,
+  typedStepMax: 3,
   typedDelay: 16,
   showInputEditor: true,
-  showAstResult: false,
+  showDocumentResult: false,
   shikiLightTheme: 'github-light',
   shikiDarkTheme: 'github-dark',
   mermaidRenderer: 'beautiful',
@@ -15,10 +19,12 @@ const DEFAULT_USER_CONFIG: UserConfig = {
   mermaidDarkTheme: 'dark',
   mermaidBeautifulLightTheme: 'github-light',
   mermaidBeautifulDarkTheme: 'github-dark',
-  caret: 'block',
+  caret: '',
   animation: 'fade-in',
   animationSplit: 'auto',
-  animationDuration: 500,
+  animationDuration: 180,
+  animationStagger: 40,
+  codeBlockVariant: 'modern',
 }
 
 export function useUserConfig() {
@@ -28,13 +34,13 @@ export function useUserConfig() {
     userConfig,
     (data) => {
       if (typeof window !== 'undefined')
-        localStorage.setItem('user-config', JSON.stringify(data))
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
     },
     { deep: true },
   )
 
   onMounted(() => {
-    const data = localStorage.getItem('user-config')
+    const data = localStorage.getItem(STORAGE_KEY)
     if (data) {
       userConfig.value = {
         ...DEFAULT_USER_CONFIG,

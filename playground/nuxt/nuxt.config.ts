@@ -23,27 +23,33 @@ export default defineNuxtConfig({
     },
   },
   css: [
-    '../../packages/vue/src/style.css',
-    './app/assets/reset.css',
-    './app/assets/main.css',
-    './app/assets/theme.css',
-    // './app/assets/theme-hsl.css',
-    // './app/assets/theme-tailwind-v3.css',
+    '~/../../../packages/vue/src/style.css',
+    '~/assets/reset.css',
+    '~/assets/main.css',
+    '~/assets/theme.css',
+    // '~/assets/theme-hsl.css',
+    // '~/assets/theme-tailwind-v3.css',
   ],
   alias,
   future: { compatibilityVersion: 4 },
   compatibilityDate: 'latest',
   vite: {
-    ssr: {
-      noExternal: ['sanitize-html'],
+    $client: {
+      build: {
+        rolldownOptions: {
+          output: {
+            codeSplitting: false,
+          },
+        },
+      },
     },
   },
   typescript: {
     tsConfig: {
       compilerOptions: {
         paths: {
-          '@markmend/ast': ['../../packages/markmend/ast/src/index.ts'],
           '@markmend/core': ['../../packages/markmend/core/src/index.ts'],
+          '@markmend/parser': ['../../packages/markmend/parser/src/index.ts'],
           'vue-stream-markdown': ['../../packages/vue/src/'],
         },
       },

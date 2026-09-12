@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SelectOption, StreamMarkdownProps } from 'vue-stream-markdown'
+import type { CodeBlockVariant, SelectOption, StreamMarkdownProps } from 'vue-stream-markdown'
 import { THEMES } from 'beautiful-mermaid'
 import { bundledThemesInfo } from 'shiki'
 import { ANIMATION_SPLITS, ANIMATION_TYPES, CARETS } from 'vue-stream-markdown'
@@ -13,7 +13,8 @@ const autoScroll = defineModel<boolean>('autoScroll', { required: false, default
 const staticMode = defineModel<boolean>('staticMode', { required: false, default: false })
 
 const typingIndex = defineModel<number>('typingIndex', { required: false, default: 0 })
-const typedStep = defineModel<number>('typedStep', { required: false, default: 1 })
+const typedStepMin = defineModel<number>('typedStepMin', { required: false, default: 1 })
+const typedStepMax = defineModel<number>('typedStepMax', { required: false, default: 3 })
 const typedDelay = defineModel<number>('typedDelay', { required: false, default: 16 })
 
 const shikiLightTheme = defineModel<string>('shikiLightTheme', { required: false, default: 'github-light' })
@@ -25,21 +26,42 @@ const mermaidDarkTheme = defineModel<string>('mermaidDarkTheme', { required: fal
 const mermaidBeautifulLightTheme = defineModel<string>('mermaidBeautifulLightTheme', { required: false, default: 'default' })
 const mermaidBeautifulDarkTheme = defineModel<string>('mermaidBeautifulDarkTheme', { required: false, default: 'zinc-dark' })
 
-const caret = defineModel<StreamMarkdownProps['caret']>('caret', { required: false, default: 'block' })
+const caret = defineModel<NonNullable<StreamMarkdownProps['caret']> | ''>('caret', { required: false, default: '' })
 const animation = defineModel<NonNullable<StreamMarkdownProps['animation']>>('animation', { required: false, default: 'fade-in' })
 const animationSplit = defineModel<NonNullable<StreamMarkdownProps['animationSplit']>>('animationSplit', { required: false, default: 'auto' })
-const animationDuration = defineModel<number>('animationDuration', { required: false, default: 500 })
+const animationDuration = defineModel<number>('animationDuration', { required: false, default: 180 })
+const animationStagger = defineModel<number>('animationStagger', { required: false, default: 40 })
+const codeBlockVariant = defineModel<CodeBlockVariant>('codeBlockVariant', { required: false, default: 'modern' })
 
 const animationDurationInput = computed({
   get: () => animationDuration.value,
   set: (value: number | string) => {
     const nextValue = Number(value)
-    animationDuration.value = Number.isFinite(nextValue) ? nextValue : 500
+    animationDuration.value = Number.isFinite(nextValue) ? nextValue : 180
   },
 })
 
+const animationStaggerInput = computed({
+  get: () => animationStagger.value,
+  set: (value: number | string) => {
+    const nextValue = Number(value)
+    animationStagger.value = Number.isFinite(nextValue) ? Math.max(0, nextValue) : 40
+  },
+})
+
+watch(() => typedStepMin.value, (value) => {
+  if (typedStepMax.value < value)
+    typedStepMax.value = value
+})
+
+watch(() => typedStepMax.value, (value) => {
+  if (typedStepMin.value > value)
+    typedStepMin.value = value
+})
+
 const BLOCK_CLASSES = [
-  'h-10',
+  'min-h-10',
+  'py-1',
   'flex',
   'items-center',
   'justify-between',
@@ -103,10 +125,13 @@ const CARETS_OPTIONS: SelectOption[] = [
   ...Object.entries(CARETS).map(([key, value]) => ({ label: value, value: key })),
 ]
 
-const ANIMATION_OPTIONS: SelectOption[] = ANIMATION_TYPES.map(value => ({
-  label: value.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
-  value,
-}))
+const ANIMATION_OPTIONS: SelectOption[] = [
+  { label: 'None', value: '' },
+  ...ANIMATION_TYPES.map(value => ({
+    label: value.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+    value,
+  })),
+]
 
 const ANIMATION_SPLIT_OPTIONS: SelectOption[] = ANIMATION_SPLITS.map(value => ({
   label: {
@@ -116,6 +141,12 @@ const ANIMATION_SPLIT_OPTIONS: SelectOption[] = ANIMATION_SPLITS.map(value => ({
   }[value],
   value,
 }))
+
+const CODE_BLOCK_VARIANT_OPTIONS: SelectOption[] = [
+  { label: 'Modern', value: 'modern' },
+  { label: 'Classic', value: 'classic' },
+  { label: 'Minimal', value: 'minimal' },
+]
 
 function onTypingIndexChange() {
   props.toStep(typingIndex.value)
@@ -164,12 +195,26 @@ watch(() => staticMode.value, () => {
         </div>
 
         <div :class="BLOCK_CLASSES">
-          <Label :class="LABEL_CLASSES">Typed Step</Label>
+          <Label :class="LABEL_CLASSES">Step Min</Label>
           <Input
-            v-model:value="typedStep"
+            v-model:value="typedStepMin"
             :class="CONTROL_CLASSES"
             type="number"
-            placeholder="Typed step"
+            min="1"
+            step="1"
+            placeholder="Minimum step"
+          />
+        </div>
+
+        <div :class="BLOCK_CLASSES">
+          <Label :class="LABEL_CLASSES">Step Max</Label>
+          <Input
+            v-model:value="typedStepMax"
+            :class="CONTROL_CLASSES"
+            type="number"
+            min="1"
+            step="1"
+            placeholder="Maximum step"
           />
         </div>
 
@@ -180,6 +225,20 @@ watch(() => staticMode.value, () => {
             :class="CONTROL_CLASSES"
             type="number"
             placeholder="Typed delay"
+          />
+        </div>
+
+        <hr :class="DIVIDER_CLASSES">
+        <h3 :class="BLOCK_TITLE_CLASSES">
+          Code Block
+        </h3>
+
+        <div :class="BLOCK_CLASSES">
+          <Label :class="LABEL_CLASSES">Variant</Label>
+          <Select
+            v-model:value="codeBlockVariant"
+            :class="CONTROL_CLASSES"
+            :options="CODE_BLOCK_VARIANT_OPTIONS"
           />
         </div>
 
@@ -297,6 +356,18 @@ watch(() => staticMode.value, () => {
             min="0"
             step="50"
             placeholder="Duration (ms)"
+          />
+        </div>
+
+        <div :class="BLOCK_CLASSES">
+          <Label :class="LABEL_CLASSES">Stagger</Label>
+          <Input
+            v-model:value="animationStaggerInput"
+            :class="CONTROL_CLASSES"
+            type="number"
+            min="0"
+            step="10"
+            placeholder="Stagger (ms)"
           />
         </div>
       </div>

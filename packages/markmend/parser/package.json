@@ -1,0 +1,45 @@
+{
+  "name": "@markmend/parser",
+  "type": "module",
+  "version": "2.0.0-beta.5",
+  "description": "Streaming Markdown parsing powered by Markmend and Comark.",
+  "author": "jinghaihan",
+  "license": "MIT",
+  "homepage": "https://github.com/jinghaihan/vue-stream-markdown#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jinghaihan/vue-stream-markdown.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jinghaihan/vue-stream-markdown/issues"
+  },
+  "keywords": [
+    "markdown",
+    "stream",
+    "parser",
+    "comark"
+  ],
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "prepublishOnly": "pnpm build"
+  },
+  "dependencies": {
+    "comark": "catalog:parser",
+    "markdown-it-cjk-friendly": "catalog:parser",
+    "@markmend/core": "workspace:*"
+  },
+  "devDependencies": {
+    "tsdown": "catalog:build"
+  }
+}

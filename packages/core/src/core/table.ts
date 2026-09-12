@@ -1,11 +1,6 @@
 import type {
-  ParsedNode,
-  TableCellNode,
-  TableNode,
-  TableRowNode,
-} from '@markmend/ast'
-import type {
   ControlDescriptor,
+  CSVSeparator,
   DownloadEvent,
   MaybePromise,
   SelectOption,
@@ -13,18 +8,10 @@ import type {
   TableFormat,
 } from '../types'
 import {
-  getTableCellNodes,
-  resolveTableAlign,
   tableDataToCSV,
   tableDataToMarkdown,
   tableDataToTSV,
 } from '../utils'
-
-export const TABLE_FORMAT_OPTIONS: SelectOption[] = [
-  { label: 'CSV', value: 'csv' },
-  { label: 'TSV', value: 'tsv' },
-  { label: 'Markdown', value: 'markdown' },
-]
 
 export interface TableContent {
   content: string
@@ -39,49 +26,13 @@ export interface TableControlState {
 export interface TableControlActionOptions {
   key: string
   select?: SelectOption
+  filename?: string
   state: TableControlState
   getContent: (format: TableFormat) => TableContent | null
   beforeDownload?: (event: DownloadEvent) => MaybePromise<boolean>
   copyContent?: (content: string) => MaybePromise<void>
   onCopied?: (content: string) => void
   saveFile?: (filename: string, content: string | Blob, mimeType: string) => MaybePromise<void>
-}
-
-export interface TableModelOptions {
-  node: TableNode
-  hasLoadingNode?: (nodes?: ParsedNode[]) => boolean
-}
-
-export function createTableModel(options: TableModelOptions) {
-  const align = options.node.align || []
-  const headerCells = options.node.children?.[0]?.children ?? []
-  const bodyRows = options.node.children.slice(1)
-
-  return {
-    align,
-    headerCells,
-    bodyRows,
-    loading: options.hasLoadingNode?.(options.node.children) ?? false,
-    options: TABLE_FORMAT_OPTIONS,
-    getAlign(index: number) {
-      return resolveTableAlign(align, index)
-    },
-    getNodes(cell: ParsedNode | TableRowNode | TableCellNode) {
-      return getTableCellNodes<ParsedNode>(cell as ParsedNode | { children?: ParsedNode[] })
-    },
-  }
-}
-
-export function getTableContent(format: TableFormat, tableData: TableData): TableContent {
-  switch (format) {
-    case 'markdown':
-      return { content: tableDataToMarkdown(tableData), mimeType: 'text/markdown', extension: 'md' }
-    case 'tsv':
-      return { content: tableDataToTSV(tableData), mimeType: 'text/tsv', extension: 'tsv' }
-    case 'csv':
-    default:
-      return { content: tableDataToCSV(tableData), mimeType: 'text/csv', extension: 'csv' }
-  }
 }
 
 export interface TableControlDescriptorOptions {
@@ -91,6 +42,28 @@ export interface TableControlDescriptorOptions {
   showDownload: boolean
   showFullscreen: boolean
   options?: SelectOption[]
+}
+
+export const TABLE_FORMAT_OPTIONS: SelectOption[] = [
+  { label: 'CSV', value: 'csv' },
+  { label: 'TSV', value: 'tsv' },
+  { label: 'Markdown', value: 'markdown' },
+]
+
+export function getTableContent(
+  format: TableFormat,
+  tableData: TableData,
+  csvSeparator: CSVSeparator = ',',
+): TableContent {
+  switch (format) {
+    case 'markdown':
+      return { content: tableDataToMarkdown(tableData), mimeType: 'text/markdown', extension: 'md' }
+    case 'tsv':
+      return { content: tableDataToTSV(tableData), mimeType: 'text/tsv', extension: 'tsv' }
+    case 'csv':
+    default:
+      return { content: tableDataToCSV(tableData, csvSeparator), mimeType: 'text/csv', extension: 'csv' }
+  }
 }
 
 export function createTableControlDescriptors(
@@ -147,7 +120,7 @@ export async function handleTableControlAction(
       content: data.content,
     })
     if (result)
-      await options.saveFile?.(`table.${data.extension}`, data.content, data.mimeType)
+      await options.saveFile?.(`${options.filename || 'table'}.${data.extension}`, data.content, data.mimeType)
   }
 
   return state

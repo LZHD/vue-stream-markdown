@@ -1,29 +1,27 @@
 <script setup lang="ts">
-import type { MathNodeRendererProps } from '../../types'
+import type { MathRenderProps } from '../../types'
 import { computed, toRefs } from 'vue'
 import { useContext, useMathRenderer } from '../../composables'
 
-const props = withDefaults(defineProps<MathNodeRendererProps & {
+const props = withDefaults(defineProps<MathRenderProps & {
   throttle?: number
 }>(), {
   throttle: 300,
 })
 
 const {
-  cdnOptions,
-  katexOptions,
+  extensions,
   uiComponents: UI,
 } = useContext()
 
 const { node, throttle } = toRefs(props)
 const { html, error, errorMessage } = useMathRenderer({
   node,
-  katexOptions,
+  extension: computed(() => extensions.value?.math),
   throttle,
-  cdnOptions: cdnOptions.value,
 })
 
-const Error = computed(() => katexOptions.value?.errorComponent ?? UI.value.ErrorComponent)
+const Error = computed(() => extensions.value?.math?.errorComponent ?? UI.value.ErrorComponent)
 </script>
 
 <template>

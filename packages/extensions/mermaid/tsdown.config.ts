@@ -1,16 +1,19 @@
 import { defineConfig } from 'tsdown'
+import ApiSnapshot from 'tsnapi/rolldown'
 
 export default defineConfig({
   entry: ['./src/index.ts'],
   exports: true,
   dts: {
-    tsgo: true,
+    generator: 'tsgo',
+    tsgo: {},
   },
   deps: {
+    alwaysBundle: ['@antfu/utils'],
     onlyBundle: false,
     neverBundle: [
-      'beautiful-mermaid',
       'mermaid',
     ],
   },
+  plugins: [ApiSnapshot()],
 })

@@ -1,32 +1,22 @@
 import type {
-  FromMarkdownExtension,
-  MarkdownAstParser,
-  MarkdownAstParserOptions,
-  MarkdownParserOptions,
-  MdastOptions,
-  MicromarkExtension,
-  ToMarkdownExtension,
-} from '@markmend/ast'
-import type { PreprocessContext } from '@markmend/core'
-import type {
   CaretType,
   StreamMarkdownContext as CoreStreamMarkdownContext,
   StreamMarkdownProps as CoreStreamMarkdownProps,
 } from '@stream-markdown/core'
 import type { ComputedRef, MaybeRefOrGetter } from 'vue'
-import type { NodeRenderers, ParsedNode, SyntaxTree } from './core'
+import type { MarkdownComponents, MarkdownNode } from './comark'
+import type { Completion, StreamMarkdownParserOptions } from './parser'
 import type {
   CodeOptions,
   ControlsConfig,
+  ExtensionOverrides,
+  Extensions,
   HardenOptions,
   Icons,
   ImageOptions,
-  KatexOptions,
   LinkOptions,
-  MermaidOptions,
-  PreloadConfig,
   PreviewerConfig,
-  ShikiOptions,
+  TableOptions,
   UIComponents,
   UIOptions,
 } from './shared'
@@ -36,59 +26,64 @@ export type { StreamMarkdownHooks } from '@stream-markdown/core'
 export type StreamMarkdownContext = CoreStreamMarkdownContext<
   ControlsConfig,
   PreviewerConfig,
-  ShikiOptions,
-  MermaidOptions,
-  KatexOptions,
   HardenOptions,
   CodeOptions,
   ImageOptions,
   LinkOptions,
-  UIOptions
+  UIOptions,
+  Extensions
 >
 
-export type StreamMarkdownProps = CoreStreamMarkdownProps<
-  NodeRenderers,
+type BaseStreamMarkdownProps = CoreStreamMarkdownProps<
+  MarkdownComponents,
   Icons,
   UIComponents,
-  PreloadConfig,
   CaretType,
   ControlsConfig,
   PreviewerConfig,
-  ShikiOptions,
-  MermaidOptions,
-  KatexOptions,
   HardenOptions,
   CodeOptions,
   ImageOptions,
   LinkOptions,
-  UIOptions
+  UIOptions,
+  ExtensionOverrides
 >
+
+export type StreamMarkdownProps = BaseStreamMarkdownProps & {
+  completion?: Completion
+  literalTagContent?: string[]
+  parserOptions?: StreamMarkdownParserOptions
+}
+
+export interface MarkdownProviderProps {
+  extensions?: Extensions
+  isDark?: boolean
+  themeElement?: () => HTMLElement | undefined
+}
 
 export interface StreamMarkdownProvideContext {
   controls?: MaybeRefOrGetter<StreamMarkdownContext['controls']>
   previewers?: MaybeRefOrGetter<StreamMarkdownContext['previewers']>
-  shikiOptions?: MaybeRefOrGetter<StreamMarkdownContext['shikiOptions']>
-  mermaidOptions?: MaybeRefOrGetter<StreamMarkdownContext['mermaidOptions']>
-  katexOptions?: MaybeRefOrGetter<StreamMarkdownContext['katexOptions']>
+  extensions?: MaybeRefOrGetter<Extensions | undefined>
   hardenOptions?: MaybeRefOrGetter<StreamMarkdownContext['hardenOptions']>
   codeOptions?: MaybeRefOrGetter<StreamMarkdownContext['codeOptions']>
+  tableOptions?: MaybeRefOrGetter<TableOptions | undefined>
   imageOptions?: MaybeRefOrGetter<StreamMarkdownContext['imageOptions']>
   linkOptions?: MaybeRefOrGetter<StreamMarkdownContext['linkOptions']>
-  cdnOptions?: MaybeRefOrGetter<StreamMarkdownContext['cdnOptions']>
   mode?: MaybeRefOrGetter<'static' | 'streaming'>
+  dir?: MaybeRefOrGetter<StreamMarkdownProps['dir']>
   isDark?: MaybeRefOrGetter<boolean>
+  rootStyle?: MaybeRefOrGetter<Record<string, string>>
   uiOptions?: MaybeRefOrGetter<UIOptions | undefined>
-  nodeRenderers?: MaybeRefOrGetter<NodeRenderers>
   icons?: MaybeRefOrGetter<Icons>
   uiComponents?: MaybeRefOrGetter<UIComponents>
   enableAnimate?: MaybeRefOrGetter<boolean>
   animation?: MaybeRefOrGetter<StreamMarkdownProps['animation']>
   animationSplit?: MaybeRefOrGetter<StreamMarkdownProps['animationSplit']>
+  animationStagger?: MaybeRefOrGetter<StreamMarkdownProps['animationStagger']>
   enableCaret?: MaybeRefOrGetter<boolean>
   caret?: MaybeRefOrGetter<StreamMarkdownProps['caret']>
-  parsedNodes?: MaybeRefOrGetter<ParsedNode[]>
-  blocks?: MaybeRefOrGetter<SyntaxTree[]>
-  markdownParser?: MarkdownAstParser
+  documentNodes?: MaybeRefOrGetter<MarkdownNode[]>
   getContainer?: () => HTMLElement | undefined
   beforeDownload?: StreamMarkdownProps['beforeDownload']
   onCopied?: (content: string) => void
@@ -99,43 +94,28 @@ export interface StreamMarkdownResolvedContext {
   provideContext: (ctx: Partial<StreamMarkdownProvideContext>) => void
   injectContext: () => StreamMarkdownProvideContext
   mode: ComputedRef<'static' | 'streaming'>
+  dir: ComputedRef<StreamMarkdownProps['dir']>
   controls: ComputedRef<StreamMarkdownContext['controls']>
   previewers: ComputedRef<StreamMarkdownContext['previewers']>
-  shikiOptions: ComputedRef<StreamMarkdownContext['shikiOptions']>
-  mermaidOptions: ComputedRef<StreamMarkdownContext['mermaidOptions']>
-  katexOptions: ComputedRef<StreamMarkdownContext['katexOptions']>
+  extensions: ComputedRef<Extensions | undefined>
   hardenOptions: ComputedRef<StreamMarkdownContext['hardenOptions']>
   codeOptions: ComputedRef<StreamMarkdownContext['codeOptions']>
+  tableOptions: ComputedRef<TableOptions | undefined>
   imageOptions: ComputedRef<StreamMarkdownContext['imageOptions']>
   linkOptions: ComputedRef<StreamMarkdownContext['linkOptions']>
-  cdnOptions: ComputedRef<StreamMarkdownContext['cdnOptions']>
   hideTooltip: ComputedRef<boolean>
   icons: ComputedRef<Partial<Icons>>
-  nodeRenderers: ComputedRef<NodeRenderers>
   uiComponents: ComputedRef<UIComponents>
   isDark: ComputedRef<boolean>
+  rootStyle: ComputedRef<Record<string, string>>
   enableAnimate: ComputedRef<boolean>
   animation: ComputedRef<NonNullable<StreamMarkdownProps['animation']>>
   animationSplit: ComputedRef<NonNullable<StreamMarkdownProps['animationSplit']>>
+  animationStagger: ComputedRef<number>
   enableCaret: ComputedRef<boolean | undefined>
   caret: ComputedRef<string | undefined>
-  parsedNodes: ComputedRef<ParsedNode[]>
-  blocks: ComputedRef<SyntaxTree[]>
-  readonly markdownParser: MarkdownAstParser | undefined
+  documentNodes: ComputedRef<MarkdownNode[]>
   readonly getContainer: () => HTMLElement | undefined
   readonly beforeDownload: NonNullable<StreamMarkdownProps['beforeDownload']>
   readonly onCopied: (content: string) => void
-}
-
-export type {
-  FromMarkdownExtension,
-  MarkdownAstParser,
-  MarkdownAstParserOptions,
-  MarkdownParserOptions,
-  MdastOptions,
-  MicromarkExtension,
-  ParsedNode,
-  PreprocessContext,
-  SyntaxTree,
-  ToMarkdownExtension,
 }

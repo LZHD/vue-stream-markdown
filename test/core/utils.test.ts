@@ -1,13 +1,19 @@
 import {
   createTextParts,
-  getNodeKey,
+  detectTextDirection,
+  getConfigValue,
+  getDownloadFilename,
   getTableCellNodes,
   getTransitionName,
+  isConfigEnabled,
   normalizeAnimationDuration,
   normalizeCssSize,
+  normalizeThemeVariableValue,
+  resolveAnimationStagger,
+  resolveScrollableMaxHeight,
   resolveTableAlign,
   resolveTextAnimationSplit,
-  shouldAnimateNode,
+  resolveTextDirection,
   splitText,
   splitTextByAuto,
   splitTextByChar,
@@ -54,16 +60,11 @@ describe('core utilities', () => {
     ])
   })
 
-  it('keeps node keys compatible with existing renderer behavior', () => {
-    expect(getNodeKey({ type: 'paragraph' }, 2, 'block-0')).toBe('block-0-paragraph-2')
-    expect(getNodeKey({ type: 'footnoteReference', identifier: 'a' }, 3, 'block-0')).toBe('block-0-footnoteReference-a')
-  })
-
-  it('resolves animation names and node transition eligibility', () => {
+  it('resolves animation names', () => {
     expect(getTransitionName('fade-in')).toBe('stream-markdown-fade-in')
-    expect(shouldAnimateNode('paragraph')).toBe(true)
-    expect(shouldAnimateNode('text')).toBe(false)
-    expect(shouldAnimateNode('code')).toBe(false)
+    expect(resolveAnimationStagger()).toBe(40)
+    expect(resolveAnimationStagger(-10)).toBe(0)
+    expect(resolveAnimationStagger(25)).toBe(25)
   })
 
   it('normalizes CSS values used by renderers', () => {
@@ -73,6 +74,22 @@ describe('core utilities', () => {
     expect(normalizeAnimationDuration(undefined)).toBeUndefined()
     expect(normalizeCssSize(320)).toBe('320px')
     expect(normalizeCssSize('60vh')).toBe('60vh')
+    expect(resolveScrollableMaxHeight(320)).toBe('320px')
+    expect(resolveScrollableMaxHeight('50vh')).toBe('50vh')
+    expect(resolveScrollableMaxHeight(0)).toBeUndefined()
+    expect(resolveScrollableMaxHeight(Number.POSITIVE_INFINITY)).toBeUndefined()
+    expect(resolveScrollableMaxHeight('none')).toBeUndefined()
+  })
+
+  it('wraps bare hsl channels and leaves resolved theme colors untouched', () => {
+    expect(normalizeThemeVariableValue('30 29% 95%')).toBe('hsl(30 29% 95%)')
+    expect(normalizeThemeVariableValue(' 0 0% 100% ')).toBe('hsl(0 0% 100%)')
+    expect(normalizeThemeVariableValue('#fff')).toBeUndefined()
+    expect(normalizeThemeVariableValue('#f5f1ed')).toBeUndefined()
+    expect(normalizeThemeVariableValue('hsl(30 29% 95%)')).toBeUndefined()
+    expect(normalizeThemeVariableValue('rgb(245 241 237)')).toBeUndefined()
+    expect(normalizeThemeVariableValue('oklch(0.96 0.01 70)')).toBeUndefined()
+    expect(normalizeThemeVariableValue('')).toBeUndefined()
   })
 
   it('resolves table alignment and unwraps table cell children', () => {
@@ -82,5 +99,53 @@ describe('core utilities', () => {
     const child = { type: 'text', value: 'A' }
     expect(getTableCellNodes({ children: [child] })).toEqual([child])
     expect(getTableCellNodes(child)).toEqual([child])
+  })
+
+  it('resolves custom download filenames with safe fallbacks', () => {
+    const controls = {
+      code: { download: { filename: 'myScript' } },
+      table: { download: { filename: 'report' } },
+      mermaid: { download: { filename: 'flowchart' } },
+    }
+
+    expect(getDownloadFilename(controls, 'code', 'file')).toBe('myScript')
+    expect(getDownloadFilename(controls, 'table', 'table')).toBe('report')
+    expect(getDownloadFilename(controls, 'mermaid', 'diagram')).toBe('flowchart')
+    expect(getDownloadFilename({ code: { download: true } }, 'code', 'file')).toBe('file')
+    expect(getDownloadFilename({ code: { download: { filename: '' } } }, 'code', 'file')).toBe('file')
+    expect(getDownloadFilename(false, 'code', 'file')).toBe('file')
+  })
+
+  it('inherits boolean control values from parent groups', () => {
+    const disabled = {
+      code: false,
+      image: false,
+      mermaid: false,
+      table: false,
+    }
+
+    expect(getConfigValue(disabled, 'code.copy')).toBe(false)
+    expect(getConfigValue(disabled, 'table.download')).toBe(false)
+    expect(isConfigEnabled(disabled, 'image.preview')).toBe(false)
+    expect(isConfigEnabled(disabled, 'mermaid.download')).toBe(false)
+
+    expect(getConfigValue({ code: true }, 'code.copy')).toBe(true)
+    expect(isConfigEnabled({ code: { copy: false } }, 'code.copy')).toBe(false)
+    expect(isConfigEnabled({ code: {} }, 'code.copy')).toBe(true)
+  })
+
+  it('detects text direction by strong-character majority with stable tie-breaking', () => {
+    expect(detectTextDirection('Hello world')).toBe('ltr')
+    expect(detectTextDirection('مرحبا بالعالم')).toBe('rtl')
+    expect(detectTextDirection('React یک کتابخانه جاوااسکریپت بسیار محبوب است.')).toBe('rtl')
+    expect(detectTextDirection('abc אבג')).toBe('ltr')
+    expect(detectTextDirection('אבג abc')).toBe('rtl')
+    expect(detectTextDirection('1234 !?')).toBe('ltr')
+  })
+
+  it('resolves text direction from visible text', () => {
+    expect(resolveTextDirection('این یک نمونه است.', 'auto')).toBe('rtl')
+    expect(resolveTextDirection('این یک نمونه است.', 'ltr')).toBe('ltr')
+    expect(resolveTextDirection('این یک نمونه است.', undefined)).toBeUndefined()
   })
 })

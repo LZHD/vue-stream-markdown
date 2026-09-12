@@ -1,35 +1,59 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
-import type { CodeNodeRendererProps } from '../../../types'
+import type { CodeHighlightResult } from '@stream-markdown/core'
+import type { CodeBlockProps } from '../../../types'
 import { createCodeRendererModel } from '@stream-markdown/core'
-import { computed, defineAsyncComponent } from 'vue'
-import { useContext, useShiki } from '../../../composables'
+import { computed, shallowRef, watch } from 'vue'
+import { useCodeOptions, useContext } from '../../../composables'
+import CodeContent from './content.vue'
 
-const props = withDefaults(defineProps<CodeNodeRendererProps & {
+const props = withDefaults(defineProps<CodeBlockProps & {
   showHeader?: boolean
 }>(), {
   showHeader: true,
 })
 
-const { cdnOptions, uiComponents: UI } = useContext()
+const { codeOptions, extensions, isDark, uiComponents: UI } = useContext()
 
 const model = computed(() => createCodeRendererModel(props.node))
+const code = computed(() => model.value.code)
+const lang = computed(() => model.value.lang)
 const languageClass = computed(() => model.value.languageClass)
+const startLine = computed(() => model.value.startLine)
 
-const { installed: hasShiki } = useShiki({
-  cdnOptions,
+const { showLineNumbers: showConfiguredLineNumbers } = useCodeOptions({
+  codeOptions,
+  language: lang,
 })
+const showLineNumbers = computed(() => showConfiguredLineNumbers.value && !model.value.noLineNumbers)
 
-const components: Record<string, Component> = {
-  vanilla: defineAsyncComponent(() => import('./vanilla.vue')),
-  shiki: defineAsyncComponent(() => import('./shiki.vue')),
-}
+const highlighted = shallowRef<CodeHighlightResult>()
+let highlightRequest = 0
 
-const component = computed(() => {
-  if (hasShiki.value)
-    return components.shiki
-  return components.vanilla
-})
+const tokens = computed(() => highlighted.value)
+
+watch(
+  () => [
+    code.value,
+    extensions.value?.code,
+    isDark.value,
+  ] as const,
+  async ([currentCode, extension, currentIsDark]) => {
+    const request = ++highlightRequest
+    if (!extension) {
+      highlighted.value = undefined
+      return
+    }
+
+    const result = await extension.highlight({
+      code: currentCode,
+      isDark: currentIsDark,
+      language: lang.value,
+    })
+    if (request === highlightRequest)
+      highlighted.value = result
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -38,17 +62,23 @@ const component = computed(() => {
     v-if="showHeader"
     v-bind="props"
   >
-    <component
-      :is="component"
-      v-bind="props"
-      :class="[languageClass]"
+    <CodeContent
+      :code="code"
+      :lang="lang"
+      :language-class="languageClass"
+      :tokens="tokens"
+      :show-line-numbers="showLineNumbers"
+      :start-line="startLine"
     />
   </component>
 
-  <component
-    :is="component"
+  <CodeContent
     v-else
-    v-bind="props"
-    :class="[languageClass]"
+    :code="code"
+    :lang="lang"
+    :language-class="languageClass"
+    :tokens="tokens"
+    :show-line-numbers="showLineNumbers"
+    :start-line="startLine"
   />
 </template>

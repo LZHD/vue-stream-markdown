@@ -1,0 +1,213 @@
+import type { CompletionContext } from '../types'
+import type { CodeFenceScan, TextRange } from './utils'
+import { codeBlockPattern } from './pattern'
+import {
+  analyzeCodeFences,
+  findClosedCodeBlockRanges,
+  findInlineCodeRanges,
+  findLastParagraphStart,
+  maskInlineCodeMarkdownMarkers,
+  maskInvalidAsteriskMarkers,
+  maskInvalidUnderscoreMarkers,
+  maskPairedMarkerRuns,
+  maskThematicBreakMarkers,
+  removeMathBlocksFromText,
+  removeUrlsFromText,
+} from './utils'
+
+export interface FormattingMarkerAnalysis {
+  maskedContent: string
+  singleAsteriskMarkers: string
+  singleUnderscoreMarkers: string
+  withoutCodeBlocksAndUrls: string
+  withoutMath: (singleDollarTextMath?: boolean) => string
+}
+
+export interface CompletionParagraphAnalysis {
+  codeBlockRanges: TextRange[]
+  content: string
+  formattingMarkers: FormattingMarkerAnalysis
+  inlineCodeRanges: TextRange[]
+  isFullyCodeBlock: boolean
+  startIndex: number
+  startOffset: number
+}
+
+export interface CompletionAnalysis {
+  codeBlockRanges: TextRange[]
+  content: string
+  hasUnclosedCodeBlock: boolean
+  inlineCodeRanges: TextRange[]
+  isFullyCodeBlock: boolean
+  lines: string[]
+  getLastParagraph: (skipTrailingEmpty?: boolean) => CompletionParagraphAnalysis
+}
+
+const analysisCache = new WeakMap<CompletionContext, CompletionAnalysis>()
+
+class CachedFormattingMarkerAnalysis implements FormattingMarkerAnalysis {
+  private cachedMaskedContent?: string
+  private cachedSingleAsteriskMarkers?: string
+  private cachedSingleUnderscoreMarkers?: string
+  private cachedWithoutCodeBlocksAndUrls?: string
+  private cachedWithoutMath?: string
+  private cachedWithoutSingleDollarMath?: string
+
+  constructor(private readonly paragraph: CachedParagraphAnalysis) {}
+
+  get maskedContent(): string {
+    if (this.cachedMaskedContent === undefined) {
+      const withoutInlineCodeMarkers = maskInlineCodeMarkdownMarkers(
+        this.paragraph.content,
+        this.paragraph.inlineCodeRanges,
+      )
+      const withoutThematicBreakMarkers = maskThematicBreakMarkers(withoutInlineCodeMarkers)
+      const withoutInvalidAsterisks = maskInvalidAsteriskMarkers(withoutThematicBreakMarkers)
+      this.cachedMaskedContent = maskInvalidUnderscoreMarkers(withoutInvalidAsterisks)
+    }
+    return this.cachedMaskedContent
+  }
+
+  get singleAsteriskMarkers(): string {
+    this.cachedSingleAsteriskMarkers ??= maskPairedMarkerRuns(this.maskedContent, '*')
+    return this.cachedSingleAsteriskMarkers
+  }
+
+  get singleUnderscoreMarkers(): string {
+    this.cachedSingleUnderscoreMarkers ??= maskPairedMarkerRuns(this.maskedContent, '_')
+    return this.cachedSingleUnderscoreMarkers
+  }
+
+  get withoutCodeBlocksAndUrls(): string {
+    this.cachedWithoutCodeBlocksAndUrls ??= removeUrlsFromText(
+      this.maskedContent.replace(codeBlockPattern, ''),
+    )
+    return this.cachedWithoutCodeBlocksAndUrls
+  }
+
+  withoutMath(singleDollarTextMath = false): string {
+    if (singleDollarTextMath) {
+      this.cachedWithoutSingleDollarMath ??= removeMathBlocksFromText(
+        this.withoutCodeBlocksAndUrls,
+        { singleDollarTextMath: true },
+      )
+      return this.cachedWithoutSingleDollarMath
+    }
+
+    this.cachedWithoutMath ??= removeMathBlocksFromText(this.withoutCodeBlocksAndUrls)
+    return this.cachedWithoutMath
+  }
+}
+
+abstract class CachedCodeBlockAnalysis {
+  abstract readonly content: string
+  abstract get codeBlockRanges(): TextRange[]
+
+  get isFullyCodeBlock(): boolean {
+    return this.codeBlockRanges.some(range => (
+      this.content.slice(0, range.start).trim() === ''
+      && this.content.slice(range.end).trim() === ''
+    ))
+  }
+}
+
+class CachedParagraphAnalysis extends CachedCodeBlockAnalysis implements CompletionParagraphAnalysis {
+  private cachedCodeBlockRanges?: TextRange[]
+  private cachedInlineCodeRanges?: TextRange[]
+  readonly content: string
+  readonly formattingMarkers: FormattingMarkerAnalysis
+  readonly startIndex: number
+  readonly startOffset: number
+
+  constructor(lines: string[], skipTrailingEmpty: boolean) {
+    super()
+    this.startIndex = findLastParagraphStart(lines, skipTrailingEmpty)
+    this.content = lines.slice(this.startIndex).join('\n')
+    this.startOffset = this.startIndex === 0
+      ? 0
+      : lines.slice(0, this.startIndex).join('\n').length + 1
+    this.formattingMarkers = new CachedFormattingMarkerAnalysis(this)
+  }
+
+  get codeBlockRanges(): TextRange[] {
+    this.cachedCodeBlockRanges ??= findClosedCodeBlockRanges(this.content)
+    return this.cachedCodeBlockRanges
+  }
+
+  get inlineCodeRanges(): TextRange[] {
+    this.cachedInlineCodeRanges ??= findInlineCodeRanges(this.content, this.codeBlockRanges)
+    return this.cachedInlineCodeRanges
+  }
+}
+
+class CachedCompletionAnalysis extends CachedCodeBlockAnalysis implements CompletionAnalysis {
+  private cachedCodeFences?: CodeFenceScan
+  private cachedCodeBlockRanges?: TextRange[]
+  private cachedHasUnclosedCodeBlock?: boolean
+  private cachedInlineCodeRanges?: TextRange[]
+  private cachedLines?: string[]
+  private defaultParagraph?: CompletionParagraphAnalysis
+  private trailingParagraph?: CompletionParagraphAnalysis
+
+  constructor(readonly content: string) {
+    super()
+  }
+
+  get codeBlockRanges(): TextRange[] {
+    this.cachedCodeFences ??= analyzeCodeFences(this.content)
+    this.cachedCodeBlockRanges ??= this.cachedCodeFences.ranges
+    return this.cachedCodeBlockRanges
+  }
+
+  get hasUnclosedCodeBlock(): boolean {
+    this.cachedCodeFences ??= analyzeCodeFences(this.content)
+    this.cachedHasUnclosedCodeBlock = this.cachedCodeFences.markers.length % 2 === 1
+    return this.cachedHasUnclosedCodeBlock
+  }
+
+  get inlineCodeRanges(): TextRange[] {
+    this.cachedInlineCodeRanges ??= findInlineCodeRanges(this.content, this.codeBlockRanges)
+    return this.cachedInlineCodeRanges
+  }
+
+  get lines(): string[] {
+    this.cachedLines ??= this.content.split('\n')
+    return this.cachedLines
+  }
+
+  getLastParagraph(skipTrailingEmpty = false): CompletionParagraphAnalysis {
+    if (skipTrailingEmpty) {
+      this.trailingParagraph ??= new CachedParagraphAnalysis(this.lines, true)
+      return this.trailingParagraph
+    }
+
+    this.defaultParagraph ??= new CachedParagraphAnalysis(this.lines, false)
+    return this.defaultParagraph
+  }
+}
+
+function analyzeCompletionContent(content: string): CompletionAnalysis {
+  return new CachedCompletionAnalysis(content)
+}
+
+export function createCompletionContext(
+  context: CompletionContext = {},
+): CompletionContext {
+  return { ...context }
+}
+
+export function getCompletionAnalysis(
+  content: string,
+  context?: CompletionContext,
+): CompletionAnalysis {
+  if (!context)
+    return analyzeCompletionContent(content)
+
+  const cached = analysisCache.get(context)
+  if (cached?.content === content)
+    return cached
+
+  const analysis = analyzeCompletionContent(content)
+  analysisCache.set(context, analysis)
+  return analysis
+}

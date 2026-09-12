@@ -1,0 +1,31 @@
+{
+  "name": "benchmark",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "bench:code": "vitest bench --run code.bench.ts",
+    "bench:completion": "vitest bench --run completion.bench.ts",
+    "bench:parser": "vitest bench --run parser.bench.ts",
+    "bench:render": "vitest bench --run render.bench.ts",
+    "bench:stable-tail": "vitest bench --run stable-tail.bench.ts --reporter=verbose"
+  },
+  "devDependencies": {
+    "@streamdown/code": "catalog:benchmark",
+    "@types/react": "catalog:benchmark",
+    "@types/react-dom": "catalog:benchmark",
+    "jsdom": "catalog:benchmark",
+    "react": "catalog:benchmark",
+    "react-dom": "catalog:benchmark",
+    "remark-gfm": "catalog:benchmark",
+    "remark-parse": "catalog:benchmark",
+    "remend": "catalog:benchmark",
+    "streamdown": "catalog:benchmark",
+    "unified": "catalog:benchmark",
+    "vue": "catalog:frontend",
+    "comark": "catalog:parser",
+    "vitest": "catalog:test",
+    "@types/node": "catalog:types",
+    "@stream-markdown/code": "workspace:*",
+    "vue-stream-markdown": "workspace:*"
+  }
+}

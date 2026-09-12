@@ -1,7 +1,16 @@
-export type MarkdownProcessorMode = 'static' | 'streaming'
+export interface CompletionOptions {
+  /** Escape numeric comparison operators in list items while streaming. @default true */
+  comparisonOperators?: boolean
+  /** Hide bare `*`, `**`, `_`, `__`, `~`, and `~~` markers while streaming. @default true */
+  hideBareFormattingMarkers?: boolean
+  /** Override one or more built-in completion steps. */
+  completionSteps?: CompletionSteps
+  singleDollarTextMath?: boolean
+}
 
-export type PreprocessStepName
+export type BuiltinCompletionType
   = | 'code'
+    | 'comparisonOperators'
     | 'html'
     | 'footnote'
     | 'strong'
@@ -13,28 +22,20 @@ export type PreprocessStepName
     | 'inlineMath'
     | 'math'
 
-export type PreprocessStep = (content: string, options?: PreprocessContext) => string
+export type CompletionType = BuiltinCompletionType | (string & {})
 
-export type PreprocessSteps = Partial<Record<PreprocessStepName, PreprocessStep>>
+export type CompletionStep = (content: string, context?: CompletionContext) => string
 
-export interface MarkdownProcessorOptions {
-  normalize?: (content: string) => string
-  preprocess?: (content: string, options?: PreprocessContext) => string
-  preprocessSteps?: PreprocessSteps
-  parseMarkdownIntoBlocks?: (content: string) => string[]
+export type CompletionSteps = Partial<Record<BuiltinCompletionType, CompletionStep | false>>
+
+export interface CompletionInfo {
+  phase?: string
+  type: CompletionType
 }
 
-export interface PreprocessContext {
-  singleDollarTextMath?: boolean
+export interface CompletionResult {
+  completion?: CompletionInfo
+  markdown: string
 }
 
-export interface MarkdownProcessorRunOptions {
-  mode?: MarkdownProcessorMode
-  preprocessContext?: PreprocessContext
-}
-
-export interface MarkdownProcessorResult {
-  normalizedContent: string
-  blocks: string[]
-  contents: string[]
-}
+export type CompletionContext = CompletionOptions

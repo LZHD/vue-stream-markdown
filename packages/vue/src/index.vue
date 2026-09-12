@@ -1,123 +1,145 @@
 <script setup lang="ts">
+import type { CompletionInfo } from '@markmend/parser'
 import type {
-  BuiltinNodeRenderers,
   Icons,
-  MarkdownAstParser,
-  NodeRenderers,
-  ParsedNode,
+  MarkdownDocument,
   StreamMarkdownProps,
   UIComponents,
 } from './types'
+import { createMarkmendParser } from '@markmend/parser'
 import {
-  createProcessedMarkdownModel,
   createRootStyle,
-  createStreamMarkdownEngine,
   DEFAULT_ANIMATION,
   DEFAULT_ANIMATION_SPLIT,
+  DEFAULT_ANIMATION_STAGGER,
   resolveEnableAnimate,
   resolveEnableCaret,
-  resolvePreloadNodeRenderers,
 } from '@stream-markdown/core'
-import { computed, onBeforeUnmount, onMounted, ref, toRefs, watch } from 'vue'
-import { NODE_RENDERERS, UI } from './components'
+import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, toRefs, watch } from 'vue'
+import { UI } from './components'
 import { ICONS } from './components/icons'
-import NodeList from './components/node-list.vue'
+import MarkdownNodes from './components/renderers/markdown'
 import {
   useContext,
   useDarkDetector,
-  useKatex,
   useLocaleDetector,
-  useMermaid,
-  useShiki,
+  useMarkdownProvider,
   useTailwindV3Theme,
 } from './composables'
 import { loadLocaleMessages } from './locales'
-import { preloadAsyncComponents } from './utils'
+import {
+  preloadAsyncComponents,
+  resolveExtensions,
+  resolveOwnedExtensions,
+} from './utils'
 import './style.css'
 
 const props = withDefaults(defineProps<StreamMarkdownProps>(), {
   mode: 'streaming',
   content: '',
-  nodeRenderers: () => ({}),
+  components: () => ({}),
+  uiComponents: () => ({}),
   icons: () => ({}),
+  completion: true,
   controls: true,
   previewers: true,
   enableAnimate: undefined,
   animation: DEFAULT_ANIMATION,
   animationSplit: DEFAULT_ANIMATION_SPLIT,
+  animationStagger: DEFAULT_ANIMATION_STAGGER,
   isDark: undefined,
 })
 
 const emits = defineEmits<{
   (e: 'copied', content: string): void
+  (e: 'end'): void
 }>()
 
 const {
   controls,
   previewers,
   mode,
+  dir,
   content,
   isDark: darkProp,
   locale: localeProp,
   codeOptions,
+  tableOptions,
   imageOptions,
   linkOptions,
-  katexOptions,
   hardenOptions,
-  shikiOptions,
-  mermaidOptions,
+  extensions: extensionOverrides,
   uiOptions,
-  cdnOptions,
   animation,
   animationSplit,
+  animationStagger,
   caret,
 } = toRefs(props)
 
 const { provideContext } = useContext()
+const provider = useMarkdownProvider()
 
-const { cssVariables, stop: stopTailwindV3ThemeObserver } = useTailwindV3Theme({ element: props.themeElement })
-const { isDark, stop: stopDarkModeObserver } = useDarkDetector(darkProp, cssVariables)
+const observesLocalTheme = computed(() => !provider || props.themeElement !== undefined)
+const {
+  cssVariables: localCssVariables,
+  stop: stopTailwindV3ThemeObserver,
+} = useTailwindV3Theme({
+  element: props.themeElement,
+  enabled: observesLocalTheme,
+})
+const cssVariables = computed(() => {
+  return observesLocalTheme.value
+    ? localCssVariables.value
+    : provider?.cssVariables.value ?? {}
+})
+const resolvedDarkProp = computed(() => {
+  return typeof darkProp.value === 'boolean'
+    ? darkProp.value
+    : provider?.isDark.value
+})
+const { isDark, stop: stopDarkModeObserver } = useDarkDetector(
+  resolvedDarkProp,
+  cssVariables,
+  { manageOverlay: () => !provider },
+)
 const { locale } = useLocaleDetector(localeProp)
+const extensions = computed(() => resolveExtensions(
+  provider?.extensions.value,
+  extensionOverrides.value,
+))
 
-const { preload: preloadShiki, dispose: disposeShiki } = useShiki({
-  shikiOptions,
-  cdnOptions: props.cdnOptions,
+const containerRef = shallowRef<HTMLDivElement>()
+const document = shallowRef<MarkdownDocument>({
+  frontmatter: {},
+  meta: {},
+  nodes: [],
 })
-const { preload: preloadMermaid, dispose: disposeMermaid } = useMermaid({
-  mermaidOptions,
-  cdnOptions: props.cdnOptions,
-})
-const { preload: preloadKatex, dispose: disposeKatex } = useKatex({
-  markdown: content,
-  mdastOptions: props.mdastOptions,
-  cdnOptions: props.cdnOptions,
-})
+const completionInfo = shallowRef<CompletionInfo>()
 
-const containerRef = ref<HTMLDivElement>()
-
-const { markdownParser, parse, updateMode } = createStreamMarkdownEngine({
-  ...props,
-  mode: props.mode,
+const parser = createMarkmendParser({
+  completion: props.completion,
+  literalTagContent: props.literalTagContent,
+  parserOptions: {
+    ...props.parserOptions,
+    plugins: [
+      ...(props.parserOptions?.plugins ?? []),
+      ...(extensions.value?.math ? [extensions.value.math.parserPlugin] : []),
+    ],
+  },
+  syntax: {
+    security: {
+      allowedImagePrefixes: props.hardenOptions?.allowedImagePrefixes,
+      allowedLinkPrefixes: props.hardenOptions?.allowedLinkPrefixes,
+      allowedProtocols: props.hardenOptions?.allowedProtocols,
+      allowDataImages: props.hardenOptions?.allowDataImages,
+      defaultOrigin: props.hardenOptions?.defaultOrigin,
+    },
+  },
 })
 
 const enableAnimate = computed(() => resolveEnableAnimate(mode.value, props.enableAnimate))
-
 const enableCaret = computed(() => resolveEnableCaret(mode.value, props.caret))
-
-const processed = computed(() => createProcessedMarkdownModel(parse(props.content)))
-
-const blocks = computed(() => processed.value.blocks)
-const parsedNodes = computed(() => processed.value.parsedNodes)
-const processedContent = computed(() => processed.value.processedContent)
-
 const rootStyle = computed(() => createRootStyle(cssVariables.value, props.animationDuration))
-
-const nodeRenderers = computed((): NodeRenderers => ({
-  ...NODE_RENDERERS,
-  ...props.nodeRenderers,
-}))
-
-const preloadNodeRenderers = computed((): BuiltinNodeRenderers[] => resolvePreloadNodeRenderers(props.preload))
 
 const icons = computed((): Icons => ({
   ...ICONS,
@@ -126,24 +148,47 @@ const icons = computed((): Icons => ({
 
 const uiComponents = computed((): UIComponents => ({
   ...UI,
-  ...props.components,
+  ...props.uiComponents,
 }))
+
+let active = true
+let parseRevision = 0
+const ownedExtensions = resolveOwnedExtensions(
+  provider?.extensions.value,
+  extensionOverrides.value,
+)
+
+watch(
+  [content, mode],
+  ([markdown, currentMode]) => {
+    const revision = ++parseRevision
+    void parser.parse(markdown, currentMode).then(async (result) => {
+      if (!active || revision !== parseRevision)
+        return
+
+      completionInfo.value = result.completion
+      const nextDocument = result.document
+      document.value = nextDocument
+
+      if (currentMode === 'static') {
+        await nextTick()
+        if (active && revision === parseRevision)
+          emits('end')
+      }
+    })
+  },
+  { immediate: true },
+)
+
+watch(locale, () => loadLocaleMessages(locale.value))
 
 function getContainer(): HTMLElement | undefined {
   return containerRef.value
 }
 
-interface StreamMarkdownExpose {
-  getMarkdownParser: () => MarkdownAstParser
-  getParsedNodes: () => ParsedNode[]
-  getProcessedContent: () => string
-}
-
 async function bootstrap() {
   const tasks = [
-    preloadShiki(),
-    preloadMermaid(),
-    preloadKatex(),
+    ...ownedExtensions.map(extension => extension.preload()),
     preloadAsyncComponents(icons.value),
     preloadAsyncComponents(uiComponents.value),
   ]
@@ -151,62 +196,52 @@ async function bootstrap() {
   if (props.locale !== 'en-US')
     tasks.push(loadLocaleMessages(locale.value))
 
-  if (preloadNodeRenderers.value.length)
-    tasks.push(preloadAsyncComponents(nodeRenderers.value, preloadNodeRenderers.value))
-
   await Promise.all(tasks)
 }
 
 onMounted(bootstrap)
 
-watch(mode, () => updateMode(mode.value))
-watch(locale, () => loadLocaleMessages(locale.value))
-
 provideContext({
   controls,
   previewers,
-  shikiOptions,
-  mermaidOptions,
-  katexOptions,
+  extensions,
   hardenOptions,
   codeOptions,
+  tableOptions,
   imageOptions,
   linkOptions,
-  cdnOptions,
   mode,
-  nodeRenderers,
+  dir,
   icons,
   uiComponents,
   uiOptions,
   isDark,
+  rootStyle,
   enableAnimate,
   animation,
   animationSplit,
+  animationStagger,
   enableCaret,
   caret,
-  blocks,
-  parsedNodes,
-  markdownParser,
+  documentNodes: computed(() => document.value.nodes),
   getContainer,
   beforeDownload: props.beforeDownload,
-  onCopied: (content: string) => {
-    emits('copied', content)
+  onCopied: (copiedContent: string) => {
+    emits('copied', copiedContent)
   },
 })
 
 onBeforeUnmount(() => {
-  disposeShiki()
-  disposeMermaid()
-  disposeKatex()
+  active = false
+  for (const extension of ownedExtensions)
+    void extension.dispose()
 
   stopTailwindV3ThemeObserver()
   stopDarkModeObserver()
 })
 
-defineExpose<StreamMarkdownExpose>({
-  getMarkdownParser: () => markdownParser,
-  getParsedNodes: () => parsedNodes.value,
-  getProcessedContent: () => processedContent.value,
+defineExpose({
+  getDocument: () => document.value,
 })
 </script>
 
@@ -215,15 +250,14 @@ defineExpose<StreamMarkdownExpose>({
     ref="containerRef"
     class="stream-markdown"
     :class="[isDark ? 'dark' : 'light']"
+    :dir="dir === 'auto' ? undefined : dir"
     :style="rootStyle"
   >
-    <template v-for="(block, index) in blocks" :key="index">
-      <NodeList
-        :nodes="block.children"
-        :block-index="index"
-        :node-key="`stream-markdown-block-${index}`"
-        :deep="0"
-      />
-    </template>
+    <MarkdownNodes
+      :completion-info="completionInfo"
+      :components="components"
+      :loading="mode === 'streaming'"
+      :nodes="document.nodes"
+    />
   </div>
 </template>

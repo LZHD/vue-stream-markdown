@@ -1,3 +1,5 @@
+import type { CSVSeparator } from './table'
+
 export type ZoomControlPosition
   = | 'top-left'
     | 'top-right'
@@ -6,11 +8,18 @@ export type ZoomControlPosition
     | 'bottom-right'
     | 'bottom-center'
 
+export interface DownloadControlOptions {
+  filename: string
+}
+
+export type DownloadControlConfig = boolean | DownloadControlOptions
+
 export type TableControlsConfig<TTransformer = unknown>
   = | boolean
     | {
       copy?: boolean | string
-      download?: boolean | string
+      csvSeparator?: CSVSeparator
+      download?: DownloadControlConfig | string
       fullscreen?: boolean
       customize?: TTransformer
     }
@@ -20,7 +29,7 @@ export type CodeControlsConfig<TTransformer = unknown>
     | {
       collapse?: boolean
       copy?: boolean
-      download?: boolean
+      download?: DownloadControlConfig
       fullscreen?: boolean
       customize?: TTransformer
     }
@@ -40,6 +49,7 @@ export type ImageControlsConfig<TTransformer = unknown>
 export type MermaidControlsConfig<TTransformer = unknown>
   = | boolean
     | {
+      download?: DownloadControlConfig
       inlineInteractive?: boolean
       position?: ZoomControlPosition
       customize?: TTransformer

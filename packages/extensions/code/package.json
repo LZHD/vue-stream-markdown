@@ -1,10 +1,7 @@
 {
   "name": "@stream-markdown/code",
   "type": "module",
-  "version": "1.0.0",
-  "publishConfig": {
-    "access": "public"
-  },
+  "version": "2.0.0-beta.5",
   "homepage": "https://github.com/jinghaihan/vue-stream-markdown#readme",
   "repository": {
     "type": "git",
@@ -22,6 +19,9 @@
   "exports": {
     ".": "./dist/index.mjs",
     "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "types": "./dist/index.d.mts",
   "files": [

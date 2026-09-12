@@ -3,7 +3,7 @@ import type {
   ImagePreviewControlKey,
   ImagePreviewTransformState,
 } from '@stream-markdown/core'
-import type { Control, ImageNodeRendererProps, UIImageProps } from '../types'
+import type { Control, UIImageProps } from '../types'
 import {
   createImagePreviewModel,
   createImagePreviewSources,
@@ -20,7 +20,6 @@ import { useContext, useControls, useI18n, useMediumZoom } from '../composables'
 const props = withDefaults(defineProps<UIImageProps>(), {
   preview: true,
   margin: 16,
-  controls: true,
 })
 
 const emits = defineEmits<{
@@ -28,9 +27,10 @@ const emits = defineEmits<{
   (e: 'error', event: Event): void
 }>()
 
-const { icons, parsedNodes, uiComponents: UI } = useContext()
+const { icons, uiComponents: UI } = useContext()
 
-const { margin, controls: controlsConfig } = toRefs(props)
+const { margin } = toRefs(props)
+const controlsConfig = computed(() => props.controls ?? true)
 
 const { t } = useI18n()
 const { resolveControls } = useControls({
@@ -40,6 +40,7 @@ const { resolveControls } = useControls({
 const loaded = ref<boolean>(false)
 
 const open = ref<boolean>(false)
+const modalMounted = ref<boolean>(false)
 const scaleX = ref<number>(1)
 const scaleY = ref<number>(1)
 const rotate = ref<number>(0)
@@ -59,18 +60,21 @@ const {
   zoomOut,
 } = useMediumZoom({
   margin,
-  open: () => open.value = true,
+  open: () => {
+    modalMounted.value = true
+    open.value = true
+  },
   close: () => open.value = false,
 })
 
-const imageList = computed(() => createImagePreviewSources(parsedNodes.value, props.transformHardenUrl))
+const imageList = computed(() => createImagePreviewSources(props.sources, props.transformHardenUrl))
 const { state: imageSrc, prev, next } = useCycleList(imageList, {
   initialValue: props.src,
   fallbackIndex: 0,
 })
 
 const model = computed(() => createImagePreviewModel({
-  parsedNodes: parsedNodes.value,
+  sources: imageList.value,
   src: imageSrc.value,
   controls: controlsConfig.value,
   transformHardenUrl: props.transformHardenUrl,
@@ -89,6 +93,7 @@ const model = computed(() => createImagePreviewModel({
 
 const controlPosition = computed(() => model.value.controlPosition)
 const imageStyle = computed(() => model.value.imageStyle)
+const modalLabel = computed(() => props.alt || props.title || t('dialog.imagePreview', 'button.preview'))
 
 const builtinControls = computed((): Control[] => model.value.controls.map(item => ({
   ...item,
@@ -98,7 +103,7 @@ const builtinControls = computed((): Control[] => model.value.controls.map(item 
 })))
 
 const zoomControls = computed(
-  () => resolveControls<ImageNodeRendererProps>('image', builtinControls.value, props.nodeProps),
+  () => resolveControls('image', builtinControls.value, props.nodeProps),
 )
 
 function handleLoad(event: Event) {
@@ -190,7 +195,9 @@ watch(open, (data) => {
 
   <component
     :is="UI.Modal"
+    v-if="modalMounted"
     v-model:open="open"
+    :aria-label="modalLabel"
     transition=""
     :modal-style="{
       backgroundColor: 'rgba(0, 0, 0, 0.45)',

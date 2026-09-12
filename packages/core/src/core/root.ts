@@ -1,70 +1,14 @@
-import type {
-  MarkdownAstParserOptions,
-  MarkdownAstParserResult,
-  ParsedNode,
-} from '@markmend/ast'
-import type {
-  AnimationSplit,
-  AnimationType,
-  BuiltinNodeRenderers,
-  PreloadConfig,
-} from '../types'
-import type {
-  StreamMarkdownMode,
-  StreamMarkdownProcessed,
-} from './types'
-import {
-  MarkdownAstParser,
-} from '@markmend/ast'
+import type { AnimationSplit, AnimationType } from '../types'
 import {
   CARETS,
   DEFAULT_ANIMATION,
   DEFAULT_ANIMATION_SPLIT,
-  PRELOAD_NODE_RENDERER,
+  DEFAULT_ANIMATION_STAGGER,
   STREAM_MARKDOWN_CSS_VARIABLES,
 } from '../constants'
-import {
-  normalizeAnimationDuration,
-} from '../utils'
+import { normalizeAnimationDuration } from '../utils'
 
-export interface StreamMarkdownEngineOptions extends MarkdownAstParserOptions {
-  mode: StreamMarkdownMode
-}
-
-export interface RootStateOptions {
-  mode: StreamMarkdownMode
-  enableAnimate?: boolean
-  caret?: string
-  animation?: AnimationType
-  animationSplit?: AnimationSplit
-  animationDuration?: number | string
-}
-
-export function createStreamMarkdownEngine(options: StreamMarkdownEngineOptions) {
-  const markdownParser = new MarkdownAstParser(options)
-
-  return {
-    markdownParser,
-    parse(content: string): MarkdownAstParserResult {
-      return markdownParser.parseMarkdown(content)
-    },
-    updateMode(mode: StreamMarkdownMode) {
-      markdownParser.updateMode(mode)
-    },
-    hasLoadingNode(nodes?: ParsedNode[]) {
-      return markdownParser.hasLoadingNode(nodes)
-    },
-  }
-}
-
-export function createProcessedMarkdownModel(processed?: MarkdownAstParserResult): StreamMarkdownProcessed {
-  const blocks = processed?.asts ?? []
-  return {
-    blocks,
-    parsedNodes: blocks.flatMap(block => block.children),
-    processedContent: (processed?.contents ?? []).join(''),
-  }
-}
+export type StreamMarkdownMode = 'static' | 'streaming'
 
 export function resolveEnableAnimate(mode: StreamMarkdownMode, enableAnimate?: boolean): boolean {
   if (typeof enableAnimate === 'boolean')
@@ -84,6 +28,12 @@ export function resolveAnimationSplit(animationSplit?: AnimationSplit): Animatio
   return animationSplit ?? DEFAULT_ANIMATION_SPLIT
 }
 
+export function resolveAnimationStagger(animationStagger?: number): number {
+  if (!Number.isFinite(animationStagger))
+    return DEFAULT_ANIMATION_STAGGER
+  return Math.max(0, animationStagger ?? DEFAULT_ANIMATION_STAGGER)
+}
+
 export function resolveCaret(caret?: string): string | undefined {
   if (!caret || !(caret in CARETS))
     return undefined
@@ -99,19 +49,4 @@ export function createRootStyle(
   if (duration !== undefined)
     style[STREAM_MARKDOWN_CSS_VARIABLES.animationDuration] = duration
   return style
-}
-
-export function resolvePreloadNodeRenderers(
-  preload?: PreloadConfig<BuiltinNodeRenderers>,
-): BuiltinNodeRenderers[]
-export function resolvePreloadNodeRenderers<TBuiltinNodeRenderer extends string>(
-  preload?: PreloadConfig<TBuiltinNodeRenderer>,
-  fallback?: readonly TBuiltinNodeRenderer[],
-): TBuiltinNodeRenderer[]
-export function resolvePreloadNodeRenderers<TBuiltinNodeRenderer extends string>(
-  preload?: PreloadConfig<TBuiltinNodeRenderer>,
-  fallback?: readonly TBuiltinNodeRenderer[],
-): TBuiltinNodeRenderer[] {
-  const resolvedFallback = fallback ?? (PRELOAD_NODE_RENDERER as unknown as readonly TBuiltinNodeRenderer[])
-  return preload?.nodeRenderers ?? Array.from(resolvedFallback)
 }

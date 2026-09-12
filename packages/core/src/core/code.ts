@@ -1,5 +1,5 @@
-import type { CodeNode } from '@markmend/ast'
 import type {
+  CodeBlockVariant,
   CodeOptions,
   CodeOptionsLanguage,
   ControlDescriptor,
@@ -9,20 +9,79 @@ import type {
   PreviewSegmentedPlacement,
   SelectOption,
 } from '../types'
-import type { CodeBlockModeState } from './types'
 import {
+  CODE_META_NO_LINE_NUMBERS_PATTERN,
+  CODE_META_START_LINE_PATTERN,
   LANGUAGE_ALIAS,
   LANGUAGE_EXTENSIONS,
 } from '../constants'
 import {
   getConfigValue,
   isCodeOptionEnabled,
-  normalizeCssSize,
   resolveCodeOptions,
+  resolveScrollableMaxHeight,
 } from '../utils'
+
+export interface CodePreviewableOptions<TComponent = unknown> {
+  previewers?: PreviewerConfig<TComponent>
+  language: string
+  nodeLoading?: boolean
+  hasMermaid?: boolean
+  progressiveRender?: boolean
+  isPreviewComponent?: (component: unknown) => boolean
+}
+
+export interface CodeMaxHeightOptions<TComponent = unknown> {
+  mode: 'preview' | 'source'
+  codeOptions?: CodeOptions<TComponent>
+  language: string
+}
+
+export interface CodeBlockControlDescriptorOptions {
+  collapsed: boolean
+  fullscreen: boolean
+  copied: boolean
+  language: string
+  showCollapse: boolean
+  showCopy: boolean
+  showDownload: boolean
+  showFullscreen: boolean
+  downloadOptions?: SelectOption[]
+}
+
+export interface CodeBlockControlState {
+  collapsed: boolean
+  fullscreen: boolean
+}
+
+export interface CodeBlockControlActionOptions {
+  key: string
+  select?: SelectOption
+  filename?: string
+  state: CodeBlockControlState
+  node: CodeBlockNode
+  language: string
+  beforeDownload?: (event: DownloadEvent) => MaybePromise<boolean>
+  copyText?: (content: string) => MaybePromise<void>
+  onCopied?: (content: string) => void
+  saveFile?: (filename: string, content: string | Blob, mimeType: string) => MaybePromise<void>
+  saveMermaid?: (format: 'svg' | 'png', code: string, filename?: string) => MaybePromise<void>
+}
+
+export interface CodeBlockNode {
+  value: string
+  lang?: string | null
+  meta?: string
+  loading?: boolean
+}
+
+export interface CodeBlockModeState {
+  mode: 'preview' | 'source'
+}
 
 export interface CodeOptionsModel<TComponent = unknown> {
   languageCodeOptions: CodeOptionsLanguage<TComponent>
+  variant: CodeBlockVariant
   showLanguageIcon: boolean
   showLanguageName: boolean
   showLineNumbers: boolean
@@ -30,7 +89,7 @@ export interface CodeOptionsModel<TComponent = unknown> {
 }
 
 export interface CodeBlockModelOptions<TComponent = unknown> {
-  node: CodeNode
+  node: CodeBlockNode
   codeOptions?: CodeOptions<TComponent>
   previewers?: PreviewerConfig<TComponent>
   controls?: unknown
@@ -49,6 +108,9 @@ export interface CodeBlockModel<TComponent = unknown> extends CodeOptionsModel<T
   downloadOptions: SelectOption[]
 }
 
+const CODE_BLOCK_VARIANTS = ['modern', 'classic', 'minimal'] as const
+const DEFAULT_CODE_BLOCK_VARIANT: CodeBlockVariant = 'modern'
+
 export function resolveCodeLanguage(lang?: string | null): string {
   if (!lang)
     return 'plaintext'
@@ -60,12 +122,17 @@ export function createCodeOptionsModel<TComponent = unknown>(
   language: string,
 ): CodeOptionsModel<TComponent> {
   const languageCodeOptions = resolveCodeOptions(codeOptions, language)
+  const configuredVariant = languageCodeOptions.variant
+  const variant = CODE_BLOCK_VARIANTS.includes(configuredVariant as typeof CODE_BLOCK_VARIANTS[number])
+    ? configuredVariant as CodeBlockVariant
+    : DEFAULT_CODE_BLOCK_VARIANT
   const showLanguageIcon = isCodeOptionEnabled(languageCodeOptions.languageIcon)
   const showLanguageName = isCodeOptionEnabled(languageCodeOptions.languageName)
   const showLineNumbers = isCodeOptionEnabled(languageCodeOptions.lineNumbers)
 
   return {
     languageCodeOptions,
+    variant,
     showLanguageIcon,
     showLanguageName,
     showLineNumbers,
@@ -129,15 +196,6 @@ export function resolvePreviewPlacement<TComponent = unknown>(
   return previewers.placement
 }
 
-export interface CodePreviewableOptions<TComponent = unknown> {
-  previewers?: PreviewerConfig<TComponent>
-  language: string
-  nodeLoading?: boolean
-  hasMermaid?: boolean
-  progressiveRender?: boolean
-  isPreviewComponent?: (component: unknown) => boolean
-}
-
 export function isCodePreviewable<TComponent = unknown>(
   options: CodePreviewableOptions<TComponent>,
 ): boolean {
@@ -151,32 +209,28 @@ export function isCodePreviewable<TComponent = unknown>(
   if (!progressiveRender && options.nodeLoading)
     return false
 
-  const html = options.language === 'html' && !options.nodeLoading
-  const mermaid = options.language === 'mermaid' && !!options.hasMermaid
+  const builtinPreviewable = (
+    options.language === 'html' && !options.nodeLoading
+  ) || (
+    options.language === 'mermaid' && !!options.hasMermaid
+  )
 
-  if (previewers === true || previewers === undefined) {
-    if (options.language === 'html' && html)
-      return true
-    if (options.language === 'mermaid' && mermaid)
-      return true
+  if (previewers === true || previewers === undefined)
+    return builtinPreviewable
+
+  if (typeof previewers !== 'object')
     return false
-  }
 
-  if (typeof previewers === 'object') {
-    if (previewers.components?.[options.language] === false)
-      return false
+  if (previewers.components?.[options.language] === false)
+    return false
 
-    if (options.language === 'html' && html)
-      return true
-    if (options.language === 'mermaid' && mermaid)
-      return true
+  if (builtinPreviewable)
+    return true
 
-    const component = previewers.components?.[options.language]
-    if (isCustomPreviewComponent(component, options.isPreviewComponent) && (progressiveRender || !options.nodeLoading))
-      return true
-  }
-
-  return false
+  return isCustomPreviewComponent(
+    previewers.components?.[options.language],
+    options.isPreviewComponent,
+  )
 }
 
 export function resolveCodePreviewComponent<TComponent = unknown>(
@@ -199,12 +253,6 @@ export function resolveCodePreviewComponent<TComponent = unknown>(
   return previewer
 }
 
-export interface CodeMaxHeightOptions<TComponent = unknown> {
-  mode: 'preview' | 'source'
-  codeOptions?: CodeOptions<TComponent>
-  language: string
-}
-
 export function resolveCodeMaxHeight<TComponent = unknown>(
   options: CodeMaxHeightOptions<TComponent>,
 ): string | undefined {
@@ -212,14 +260,10 @@ export function resolveCodeMaxHeight<TComponent = unknown>(
     return undefined
 
   const specific = options.codeOptions?.language?.[options.language]?.maxHeight
-  if (specific)
-    return normalizeCssSize(specific)
+  if (specific !== undefined)
+    return resolveScrollableMaxHeight(specific)
 
-  const height = options.codeOptions?.maxHeight
-  if (height)
-    return normalizeCssSize(height)
-
-  return undefined
+  return resolveScrollableMaxHeight(options.codeOptions?.maxHeight)
 }
 
 export function getCodeDownloadOptions(language: string, hasMermaid: boolean): SelectOption[] {
@@ -230,36 +274,6 @@ export function getCodeDownloadOptions(language: string, hasMermaid: boolean): S
     { label: 'PNG', value: 'png' },
     { label: 'MMD', value: 'code' },
   ]
-}
-
-export interface CodeBlockControlDescriptorOptions {
-  collapsed: boolean
-  fullscreen: boolean
-  copied: boolean
-  language: string
-  showCollapse: boolean
-  showCopy: boolean
-  showDownload: boolean
-  showFullscreen: boolean
-  downloadOptions?: SelectOption[]
-}
-
-export interface CodeBlockControlState {
-  collapsed: boolean
-  fullscreen: boolean
-}
-
-export interface CodeBlockControlActionOptions {
-  key: string
-  select?: SelectOption
-  state: CodeBlockControlState
-  node: CodeNode
-  language: string
-  beforeDownload?: (event: DownloadEvent) => MaybePromise<boolean>
-  copyText?: (content: string) => MaybePromise<void>
-  onCopied?: (content: string) => void
-  saveFile?: (filename: string, content: string | Blob, mimeType: string) => MaybePromise<void>
-  saveMermaid?: (format: 'svg' | 'png', code: string) => MaybePromise<void>
 }
 
 export function createCodeBlockControlDescriptors(
@@ -302,15 +316,20 @@ export function getCodeFileExtension(language: string): string | undefined {
   return (LANGUAGE_EXTENSIONS as Record<string, string | undefined>)[language]
 }
 
-export function createCodeRendererModel(node: CodeNode) {
+export function createCodeRendererModel(node: CodeBlockNode) {
   const code = node.value.trim()
   const lang = node.lang || ''
+  const startLineMatch = node.meta?.match(CODE_META_START_LINE_PATTERN)
+  const parsedStartLine = Number.parseInt(startLineMatch?.[1] ?? '', 10)
+  const startLine = parsedStartLine >= 1 ? parsedStartLine : 1
 
   return {
     code,
     lang,
     languageClass: `language-${node.lang}`,
     lines: code.split('\n'),
+    noLineNumbers: CODE_META_NO_LINE_NUMBERS_PATTERN.test(node.meta ?? ''),
+    startLine,
   }
 }
 
@@ -371,7 +390,7 @@ async function downloadCode(options: CodeBlockControlActionOptions) {
   if (!result)
     return
 
-  await options.saveFile?.(`file.${extension}`, options.node.value, 'text/plain')
+  await options.saveFile?.(`${options.filename || 'file'}.${extension}`, options.node.value, 'text/plain')
 }
 
 async function downloadMermaid(
@@ -383,7 +402,7 @@ async function downloadMermaid(
     content: options.node.value,
   })
   if (result)
-    await options.saveMermaid?.(format, options.node.value)
+    await options.saveMermaid?.(format, options.node.value, options.filename)
 }
 
 async function resolveBeforeDownload(

@@ -20,7 +20,7 @@ const emits = defineEmits<{
   (e: 'cancel'): void
 }>()
 
-const { uiComponents: UI } = useContext()
+const { isDark, rootStyle, uiComponents: UI } = useContext()
 
 const { t } = useI18n()
 
@@ -32,6 +32,7 @@ const [DefineTemplate, ReuseTemplate] = createReusableTemplate()
 
 const confirmLabel = computed(() => props.confirmText || t('button.confirm'))
 const cancelLabel = computed(() => props.cancelText || t('button.cancel'))
+const keyupTarget = computed(() => open.value ? getDocument() : undefined)
 
 function handleConfirm() {
   emits('confirm')
@@ -43,12 +44,13 @@ function handleCancel() {
   open.value = false
 }
 
+useEventListener(keyupTarget, 'keyup', (event) => {
+  if (isEscapeKeyEvent(event))
+    handleCancel()
+})
+
 onMounted(() => {
   container.value = getOverlayContainer() || getDocumentBody() || undefined
-  useEventListener(getDocument(), 'keyup', (event) => {
-    if (isEscapeKeyEvent(event))
-      handleCancel()
-  })
 })
 </script>
 
@@ -129,8 +131,9 @@ onMounted(() => {
     <div
       v-if="open"
       data-stream-markdown="alert-backdrop"
-      class="bg-[rgb(0_0_0_/_0.5)] flex items-center inset-0 justify-center fixed backdrop-blur"
-      :style="{ zIndex: zIndex - 1 }"
+      class="stream-markdown bg-[rgb(0_0_0_/_0.5)] flex items-center inset-0 justify-center fixed backdrop-blur"
+      :class="[isDark ? 'dark' : 'light']"
+      :style="[rootStyle, { zIndex: zIndex - 1 }]"
       @click="handleCancel"
     >
       <Transition name="stream-markdown-modal" appear>

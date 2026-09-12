@@ -1,65 +1,42 @@
 <script setup lang="ts">
+import type { CdnOptions } from '@stream-markdown/core'
 import type {
-  CdnOptions,
   CodeOptions,
   ControlsConfig,
-  MermaidOptions,
   PreviewerConfig,
   SelectOption,
-  ShikiOptions,
   StreamMarkdownProps,
   UIOptions,
 } from 'vue-stream-markdown'
 import type { Editor } from './types'
-import { throttle } from '@antfu/utils'
+import { beautifulMermaid } from '@stream-markdown/beautiful-mermaid'
+import { code } from '@stream-markdown/code'
 import { isClient } from '@stream-markdown/core'
-import { createHtmlPlugin } from '@stream-markdown/html'
-import { useCycleList, useResizeObserver } from '@vueuse/core'
+import { math } from '@stream-markdown/math'
+import { mermaid } from '@stream-markdown/mermaid'
+import { useCycleList } from '@vueuse/core'
 import * as LZString from 'lz-string'
 import { hydrateOnVisible } from 'vue'
 import { Markdown, SUPPORT_LANGUAGES, useTailwindV3Theme } from 'vue-stream-markdown'
-import { createHtmlNodeRenderer } from 'vue-stream-markdown/html'
+import { useAutoScroll, useCursorSync, useScrollSync } from './composables'
 import { ChartPie } from './icons'
 import { DEFAULT_MARKDOWN_PATH, getPresetContent } from './markdown'
 import { getContentFromUrl } from './utils'
 
-const GitHubComponent = defineAsyncComponent({
+const githubComponent = defineAsyncComponent({
   loader: () => import('./components/github-card.vue'),
   hydrate: hydrateOnVisible(),
 })
-const html = createHtmlPlugin({
-  allowedTags: [
-    'div',
-    'p',
-    'strong',
-    'em',
-    'ul',
-    'li',
-    'a',
-    'figure',
-    'figcaption',
-    'img',
-  ],
-  componentTags: ['github'],
-  allowedAttributes: {
-    '*': ['class'],
-    'github': ['name', 'description'],
-  },
-})
-const HtmlNodeRenderer = createHtmlNodeRenderer({
-  transform: html.transform,
-  components: {
-    GitHub: GitHubComponent,
-  },
-})
+const markdownComponents: StreamMarkdownProps['components'] = {
+  github: githubComponent,
+}
 
 const { cssVariables } = useTailwindV3Theme({})
 
 const userConfig = useUserConfig()
 
 const markdownRef = ref()
-const parsedNodes = computed(() => markdownRef.value?.getParsedNodes() ?? [])
-const processedContent = computed(() => markdownRef.value?.getProcessedContent() ?? '')
+const documentNodes = computed(() => markdownRef.value?.getDocument()?.nodes ?? [])
 
 const containerRef = ref<HTMLDivElement>()
 const monacoRef = ref()
@@ -72,11 +49,9 @@ const { state: locale, next: toggleLanguage } = useCycleList(SUPPORT_LANGUAGES, 
 
 const typedEnable = ref<boolean>(false)
 
-const typedStep = computed(() => userConfig.value.typedStep)
+const typedStepMin = computed(() => userConfig.value.typedStepMin)
+const typedStepMax = computed(() => userConfig.value.typedStepMax)
 const typedDelay = computed(() => userConfig.value.typedDelay)
-
-const pauseAutoScroll = ref<boolean>(false)
-const lastScrollTop = ref<number>(0)
 
 const {
   typedContent,
@@ -90,7 +65,8 @@ const {
 } = useTypedEffect({
   enabled: typedEnable,
   content,
-  step: typedStep,
+  minStep: typedStepMin,
+  maxStep: typedStepMax,
   delay: typedDelay,
 })
 
@@ -104,29 +80,31 @@ const renderMode = computed(() => {
 })
 const markdownContent = computed(() => renderMode.value === 'static' ? content.value : typedContent.value)
 
-const copyContent = computed(() => {
-  return JSON.stringify({
-    raw: markdownContent.value,
-    processed: processedContent.value,
-  }, null, 2)
+const autoScroll = computed({
+  get: () => userConfig.value.autoScroll,
+  set: value => userConfig.value.autoScroll = value,
 })
 
-const shikiOptions = computed((): ShikiOptions => {
-  return {
-    theme: [userConfig.value.shikiLightTheme, userConfig.value.shikiDarkTheme],
-    langAlias: {
-      echarts: 'json',
-    },
-  }
+const { onScroll } = useAutoScroll({
+  container: containerRef,
+  content: () => markdownRef.value?.$el,
+  enabled: autoScroll,
+  active: isTyping,
+})
+
+const copyContent = computed(() => {
+  return markdownContent.value
 })
 
 const codeOptions = computed((): CodeOptions => {
   const options: CodeOptions = {
+    variant: userConfig.value.codeBlockVariant,
     languageIcon: !isMobile.value,
     languageName: !isMobile.value,
   }
 
   return {
+    ...options,
     language: {
       mermaid: options,
       html: options,
@@ -135,20 +113,6 @@ const codeOptions = computed((): CodeOptions => {
         languageIcon: options.languageIcon === false ? false : ChartPie,
       },
     },
-  }
-})
-
-const mermaidOptions = computed((): MermaidOptions => {
-  return {
-    renderer: userConfig.value.mermaidRenderer,
-    theme: [
-      userConfig.value.mermaidLightTheme,
-      userConfig.value.mermaidDarkTheme,
-    ],
-    beautifulTheme: [
-      userConfig.value.mermaidBeautifulLightTheme,
-      userConfig.value.mermaidBeautifulDarkTheme,
-    ],
   }
 })
 
@@ -177,6 +141,34 @@ const cdnOptions: CdnOptions = {
   },
 }
 
+const codeExtension = code({
+  cdnOptions,
+  theme: () => [userConfig.value.shikiLightTheme, userConfig.value.shikiDarkTheme],
+  langAlias: {
+    echarts: 'json',
+  },
+})
+const mathExtension = math({ cdnOptions })
+const mermaidExtension = mermaid({
+  cdnOptions,
+  theme: () => [userConfig.value.mermaidLightTheme, userConfig.value.mermaidDarkTheme],
+})
+const beautifulMermaidExtension = beautifulMermaid({
+  cdnOptions,
+  theme: () => [
+    userConfig.value.mermaidBeautifulLightTheme,
+    userConfig.value.mermaidBeautifulDarkTheme,
+  ],
+})
+const extensions = computed(() => ({
+  code: codeExtension,
+  math: mathExtension,
+  mermaid: mermaidExtension,
+  ...(userConfig.value.mermaidRenderer === 'beautiful'
+    ? { beautifulMermaid: beautifulMermaidExtension }
+    : {}),
+}))
+
 const controlsConfig = computed((): ControlsConfig => {
   return {
     mermaid: {
@@ -195,10 +187,6 @@ const previewerConfig: PreviewerConfig = {
       hydrate: hydrateOnVisible(),
     }),
   },
-}
-
-const nodeRenderers: StreamMarkdownProps['nodeRenderers'] = {
-  html: HtmlNodeRenderer,
 }
 
 const caret = computed(() => userConfig.value.caret ? userConfig.value.caret : undefined)
@@ -236,7 +224,7 @@ function stopTypeWriting() {
 function terminateTypeWriting() {
   typedEnable.value = false
   if (!userConfig.value.staticMode)
-    userConfig.value.showAstResult = false
+    userConfig.value.showDocumentResult = false
   terminate()
 }
 
@@ -261,53 +249,11 @@ function getContainer() {
   return containerRef.value
 }
 
-function onScroll() {
-  const element = containerRef.value
-  if (!element)
-    return
-
-  const isScrollUp = element.scrollTop < lastScrollTop.value
-  lastScrollTop.value = element.scrollTop
-
-  const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight
-  if (isScrollUp && distanceFromBottom > 65)
-    pauseAutoScroll.value = true
-  else if (distanceFromBottom <= 20)
-    pauseAutoScroll.value = false
-}
-
-const scrollToBottom = throttle(800, () => {
-  if (!userConfig.value.autoScroll || pauseAutoScroll.value)
-    return
-
-  const container = containerRef.value
-  if (!container)
-    return
-
-  container.scrollTo({
-    top: container.scrollHeight,
-    behavior: 'smooth',
-  })
-})
-
-function resetScrollState() {
-  userConfig.value.autoScroll = false
-  pauseAutoScroll.value = false
-  lastScrollTop.value = 0
-}
-
 watch(() => isTyping.value, (value) => {
   typedEnable.value = value
-
-  if (!value)
-    resetScrollState()
 })
 watch(() => mode.value, terminateTypeWriting)
 watch(() => locale.value, () => userConfig.value.locale = locale.value)
-
-useResizeObserver(() => markdownRef.value?.$el, () => {
-  scrollToBottom()
-})
 
 onMounted(() => {
   initContent()
@@ -318,7 +264,7 @@ onMounted(() => {
   <Layout
     v-model:typed-enable="typedEnable"
     v-model:show-input-editor="userConfig.showInputEditor"
-    v-model:show-ast-result="userConfig.showAstResult"
+    v-model:show-document-result="userConfig.showDocumentResult"
     :stop="stopTypeWriting"
     class="vue-stream-markdown"
     :style="cssVariables"
@@ -334,10 +280,11 @@ onMounted(() => {
         v-model:static-mode="userConfig.staticMode"
         v-model:auto-scroll="userConfig.autoScroll"
         v-model:typed-enable="typedEnable"
-        v-model:typed-step="userConfig.typedStep"
+        v-model:typed-step-min="userConfig.typedStepMin"
+        v-model:typed-step-max="userConfig.typedStepMax"
         v-model:typed-delay="userConfig.typedDelay"
         v-model:show-input-editor="userConfig.showInputEditor"
-        v-model:show-ast-result="userConfig.showAstResult"
+        v-model:show-document-result="userConfig.showDocumentResult"
         v-model:shiki-light-theme="userConfig.shikiLightTheme"
         v-model:shiki-dark-theme="userConfig.shikiDarkTheme"
         v-model:mermaid-renderer="userConfig.mermaidRenderer"
@@ -349,6 +296,8 @@ onMounted(() => {
         v-model:animation="userConfig.animation"
         v-model:animation-split="userConfig.animationSplit"
         v-model:animation-duration="userConfig.animationDuration"
+        v-model:animation-stagger="userConfig.animationStagger"
+        v-model:code-block-variant="userConfig.codeBlockVariant"
         :content="content"
         :prev-step="prevStep"
         :next-step="nextStep"
@@ -363,7 +312,7 @@ onMounted(() => {
         <Monaco
           ref="monacoRef"
           :content="content"
-          :theme="shikiOptions.theme"
+          :theme="[userConfig.shikiLightTheme, userConfig.shikiDarkTheme]"
           @change="onEditorChange"
           @ready="onEditorReady"
         />
@@ -388,25 +337,25 @@ onMounted(() => {
           class="my-4"
           :mode="renderMode"
           :caret="caret"
+          :enable-animate="!userConfig.staticMode && userConfig.animation !== ''"
           :animation="userConfig.animation"
           :animation-split="userConfig.animationSplit"
           :animation-duration="userConfig.animationDuration"
+          :animation-stagger="userConfig.animationStagger"
           :content="markdownContent"
           :controls="controlsConfig"
           :previewers="previewerConfig"
-          :node-renderers="nodeRenderers"
+          :components="markdownComponents"
           :locale="locale"
-          :shiki-options="shikiOptions"
           :code-options="codeOptions"
-          :mermaid-options="mermaidOptions"
+          :extensions="extensions"
           :ui-options="uiOptions"
-          :cdn-options="cdnOptions"
         />
       </div>
     </template>
 
-    <template #ast>
-      <AstResult :parsed-nodes="parsedNodes" />
+    <template #document>
+      <DocumentResult :nodes="documentNodes" />
     </template>
   </Layout>
 </template>

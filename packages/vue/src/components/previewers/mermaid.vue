@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CodeNodeRendererProps, Control } from '../../types'
+import type { CodeBlockProps, Control } from '../../types'
 import { throttle } from '@antfu/utils'
 import {
   applyMermaidRenderResult,
@@ -14,7 +14,7 @@ import { useResizeObserver } from '@vueuse/core'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useContext, useControls, useDeferredRender, useMermaid } from '../../composables'
 
-const props = withDefaults(defineProps<CodeNodeRendererProps & {
+const props = withDefaults(defineProps<CodeBlockProps & {
   interactive?: boolean
   throttle?: number
   minHeight?: number
@@ -28,10 +28,8 @@ const props = withDefaults(defineProps<CodeNodeRendererProps & {
 })
 
 const {
-  cdnOptions,
   controls,
-  mermaidOptions,
-  shikiOptions,
+  extensions,
   isDark,
   uiComponents: UI,
 } = useContext()
@@ -44,8 +42,6 @@ const previewState = ref(createMermaidPreviewControllerState())
 const containerRef = ref<HTMLDivElement>()
 
 const nodeLoading = computed(() => !!props.node.loading)
-
-const Error = computed(() => mermaidOptions.value?.errorComponent ?? UI.value.ErrorComponent)
 
 const model = computed(() => createMermaidPreviewModel({
   code: props.node.value,
@@ -64,19 +60,21 @@ const error = computed(() => previewState.value.error)
 const loading = computed(() => model.value.loading)
 const showControl = computed(() => model.value.showControl)
 const controlPosition = computed(() => model.value.controlPosition)
-const height = computed(() => model.value.height)
+const height = computed(() => model.value.height === 'auto'
+  ? `${model.value.minHeight}px`
+  : model.value.height)
 
 const { shouldRender } = useDeferredRender({
   targetRef: containerRef,
   immediate: props.immediateRender,
 })
 
-const { renderMermaid } = useMermaid({
-  mermaidOptions,
-  cdnOptions,
-  shikiOptions,
+const { renderMermaid, resolveExtension } = useMermaid({
+  extensions,
   isDark,
 })
+
+const Error = computed(() => resolveExtension(code.value)?.errorComponent ?? UI.value.ErrorComponent)
 
 function updateHeight() {
   if (props.containerHeight)
@@ -112,13 +110,15 @@ function eagerRender() {
 }
 
 const mermaidControls = computed(
-  (): Control[] => resolveControls<CodeNodeRendererProps>('mermaid', [], props),
+  (): Control[] => resolveControls<CodeBlockProps>('mermaid', [], props),
 )
 
 watch(
   () => [
     code.value,
-    mermaidOptions.value,
+    extensions.value?.beautifulMermaid,
+    extensions.value?.mermaid,
+    extensions.value?.code,
     isDark.value,
     nodeLoading.value,
   ],

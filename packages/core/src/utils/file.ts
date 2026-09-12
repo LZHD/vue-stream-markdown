@@ -1,11 +1,15 @@
 const fileExtensionPattern = /\.[^/.]+$/
+const UTF8_BYTE_ORDER_MARK = '\uFEFF'
 
 export function removeTrailingSlash(url: string): string {
   return url?.endsWith('/') ? url.slice(0, -1) : `${url}`
 }
 
 export function save(filename: string, content: string | Blob, mimeType: string) {
-  const blob = typeof content === 'string' ? new Blob([content], { type: mimeType }) : content
+  const prefix = typeof content === 'string' && mimeType.startsWith('text/csv')
+    ? UTF8_BYTE_ORDER_MARK
+    : ''
+  const blob = typeof content === 'string' ? new Blob([prefix, content], { type: mimeType }) : content
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -52,6 +56,22 @@ export async function saveImage(url: string, alt?: string) {
   }
 
   save(filename, blob, blob.type)
+}
+
+/**
+ * Mermaid output may be HTML-serialized. Serialize the SVG node as XML before
+ * downloading so embedded HTML-style elements such as <br> use valid markup.
+ */
+export function serializeSvgForDownload(svgString: string): string {
+  if (typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined')
+    return svgString
+
+  const document = new DOMParser().parseFromString(svgString, 'text/html')
+  const svg = document.querySelector('svg')
+  if (!svg)
+    return svgString
+
+  return new XMLSerializer().serializeToString(svg)
 }
 
 export function svgToPngBlob(svgString: string, options?: { scale?: number }): Promise<Blob> | null {

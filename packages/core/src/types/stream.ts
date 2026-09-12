@@ -1,33 +1,28 @@
-import type { MarkdownAstParserOptions } from '@markmend/ast'
 import type { AnimationSplit, AnimationType } from '../types'
-import type { CdnOptions } from './cdn'
-import type { MaybePromise } from './common'
+import type { MaybePromise, TextDirectionConfig } from './common'
 import type { DownloadEvent } from './events'
 import type { LocaleConfig } from './i18n'
+import type { TableOptions } from './options'
 
 export interface StreamMarkdownContext<
   TControls = unknown,
   TPreviewers = unknown,
-  TShikiOptions = unknown,
-  TMermaidOptions = unknown,
-  TKatexOptions = unknown,
   THardenOptions = unknown,
   TCodeOptions = unknown,
   TImageOptions = unknown,
   TLinkOptions = unknown,
   TUIOptions = unknown,
+  TExtensions = unknown,
 > {
   controls?: TControls
   previewers?: TPreviewers
-  shikiOptions?: TShikiOptions
-  mermaidOptions?: TMermaidOptions
-  katexOptions?: TKatexOptions
   hardenOptions?: THardenOptions
   codeOptions?: TCodeOptions
+  tableOptions?: TableOptions
   imageOptions?: TImageOptions
   linkOptions?: TLinkOptions
   uiOptions?: TUIOptions
-  cdnOptions?: CdnOptions
+  extensions?: TExtensions
   isDark?: boolean
 }
 
@@ -36,55 +31,50 @@ export interface StreamMarkdownHooks {
 }
 
 export interface StreamMarkdownViewProps<
-  TNodeRenderers = unknown,
+  TMarkdownComponents = unknown,
   TIcons = unknown,
   TUIComponents = unknown,
-  TPreload = unknown,
   TCaret extends string = string,
 > {
   mode?: 'static' | 'streaming'
+  /** Force one text direction or detect it independently for each semantic block. */
+  dir?: TextDirectionConfig
   content?: string
-  nodeRenderers?: TNodeRenderers
+  components?: TMarkdownComponents
   icons?: Partial<TIcons>
-  components?: Partial<TUIComponents>
-  preload?: TPreload
+  uiComponents?: Partial<TUIComponents>
   locale?: string | LocaleConfig
   enableAnimate?: boolean
   animation?: AnimationType
   animationSplit?: AnimationSplit
   animationDuration?: number | string
+  animationStagger?: number
   caret?: TCaret
   themeElement?: () => HTMLElement | undefined
 }
 
 export type StreamMarkdownProps<
-  TNodeRenderers = unknown,
+  TMarkdownComponents = unknown,
   TIcons = unknown,
   TUIComponents = unknown,
-  TPreload = unknown,
   TCaret extends string = string,
   TControls = unknown,
   TPreviewers = unknown,
-  TShikiOptions = unknown,
-  TMermaidOptions = unknown,
-  TKatexOptions = unknown,
   THardenOptions = unknown,
   TCodeOptions = unknown,
   TImageOptions = unknown,
   TLinkOptions = unknown,
   TUIOptions = unknown,
+  TExtensions = unknown,
 > = StreamMarkdownContext<
   TControls,
   TPreviewers,
-  TShikiOptions,
-  TMermaidOptions,
-  TKatexOptions,
   THardenOptions,
   TCodeOptions,
   TImageOptions,
   TLinkOptions,
-  TUIOptions
+  TUIOptions,
+  TExtensions
 >
-& StreamMarkdownViewProps<TNodeRenderers, TIcons, TUIComponents, TPreload, TCaret>
+& StreamMarkdownViewProps<TMarkdownComponents, TIcons, TUIComponents, TCaret>
 & StreamMarkdownHooks
-& MarkdownAstParserOptions

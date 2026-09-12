@@ -1,50 +1,22 @@
-import type { LinkNode, ParsedNode } from '@markmend/ast'
-import type { LinkOptions, UIErrorVariant } from '../types'
+import type { LinkOptions } from '../types'
 
-export interface LinkModelOptions {
-  node: LinkNode
-  transformedUrl?: string | null
-  isHardenUrl?: boolean
-  linkOptions?: LinkOptions
-  hasLoadingNode?: (nodes?: ParsedNode[]) => boolean
-}
-
-export interface LinkModel {
-  url: string
-  loading: boolean
-  safetyCheck: boolean
-  showLink: boolean
-  showError: boolean
-  errorVariant: UIErrorVariant
-}
-
-export function createLinkModel(options: LinkModelOptions): LinkModel {
-  const url = options.node.url
-  const loading = !!options.node.loading
-    || !!options.hasLoadingNode?.(options.node.children)
-    || !url
-  const safetyCheck = options.linkOptions?.safetyCheck ?? true
-
-  return {
-    url,
-    loading,
-    safetyCheck,
-    showLink: !options.isHardenUrl && typeof options.transformedUrl === 'string',
-    showError: !!options.isHardenUrl,
-    errorVariant: 'harden-link',
-  }
-}
-
-export async function checkTrustedLink(
+export function resolveLinkFaviconUrl(
   url: string,
-  linkOptions?: LinkOptions,
-): Promise<boolean> {
-  if (linkOptions?.safetyCheck === false)
-    return true
+  favicon: LinkOptions['favicon'] = true,
+): Promise<string | undefined> | string | undefined {
+  if (favicon === false || !url)
+    return undefined
 
-  const isTrusted = linkOptions?.isTrusted
-  if (typeof isTrusted !== 'function')
-    return false
+  if (typeof favicon === 'function')
+    return favicon(url)
 
-  return await Promise.resolve(isTrusted(url))
+  try {
+    const parsedUrl = new URL(url)
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:')
+      return undefined
+    return `${parsedUrl.origin}/favicon.ico`
+  }
+  catch {
+    return undefined
+  }
 }

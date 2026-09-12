@@ -8,6 +8,7 @@ import {
 } from '@stream-markdown/core'
 import { createReusableTemplate, useEventListener } from '@vueuse/core'
 import { computed, onMounted, ref, useSlots } from 'vue'
+import { useContext } from '../composables'
 
 const props = withDefaults(defineProps<UIModalProps>(), {
   zIndex: 9999,
@@ -15,6 +16,7 @@ const props = withDefaults(defineProps<UIModalProps>(), {
 })
 
 const slots = useSlots()
+const { isDark, rootStyle } = useContext()
 
 const open = defineModel<boolean>('open', { required: false, default: false })
 
@@ -23,21 +25,25 @@ const container = ref<HTMLElement>()
 const [DefineTemplate, ReuseTemplate] = createReusableTemplate()
 
 const modalStyle = computed(() => ({
+  ...rootStyle.value,
   ...props.modalStyle,
   zIndex: props.zIndex,
 }))
 const showHeader = computed(() => !!props.title || !!slots.title || !!slots.extra)
+const accessibleLabel = computed(() => props.ariaLabel || (!props.titleId ? props.title : undefined))
+const keyupTarget = computed(() => open.value ? getDocument() : undefined)
+
+useEventListener(keyupTarget, 'keyup', (event) => {
+  if (isEscapeKeyEvent(event)) {
+    if (props.close)
+      props.close()
+    else
+      open.value = false
+  }
+})
 
 onMounted(() => {
   container.value = getOverlayContainer() || getDocumentBody() || undefined
-  useEventListener(getDocument(), 'keyup', (event) => {
-    if (isEscapeKeyEvent(event)) {
-      if (props.close)
-        props.close()
-      else
-        open.value = false
-    }
-  })
 })
 </script>
 
@@ -46,7 +52,12 @@ onMounted(() => {
     <div
       v-if="open"
       data-stream-markdown="modal"
-      class="bg-background flex flex-col inset-0 fixed"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="accessibleLabel"
+      :aria-labelledby="titleId"
+      class="stream-markdown bg-background flex flex-col inset-0 fixed"
+      :class="[isDark ? 'dark' : 'light']"
       :style="modalStyle"
     >
       <header
@@ -55,9 +66,11 @@ onMounted(() => {
         class="px-4 py-2 flex shrink-0 items-center justify-between relative [&>*:last-child]:flex [&>*:first-child]:flex-1 [&>*:last-child]:flex-1 [&>*:nth-child(2)]:left-1/2 [&>*:last-child]:justify-end [&>*:nth-child(2)]:absolute [&>*:nth-child(2)]:-translate-x-1/2"
         :style="headerStyle"
       >
-        <slot name="title">
-          {{ title }}
-        </slot>
+        <div :id="titleId">
+          <slot name="title">
+            {{ title }}
+          </slot>
+        </div>
         <slot name="header-center">
           <div />
         </slot>
